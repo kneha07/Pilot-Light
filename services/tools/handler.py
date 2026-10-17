@@ -2,6 +2,8 @@
 
 The event is the tool's input arguments. The tool name arrives in the client context as
 "<target>___<tool>". Every tool returns {"result": <short speakable text>}.
+
+Production telephony path for an AWS account where Amazon Connect, DynamoDB, and Lambda are allowed. The event build uses Twilio (voice/) and CloudWatch Logs instead, because the event account blocks those services.
 """
 from pilotlight import connect, incidents, timeline, tools
 from pilotlight.config import REQUIRE_SPOKEN_CONFIRM

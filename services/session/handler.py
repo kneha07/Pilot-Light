@@ -2,6 +2,8 @@
 
 Copies incident_id and briefing from contact attributes into the AI agent session so the
 prompt can read them as {{$.Custom.incident_id}} and {{$.Custom.briefing}}.
+
+Production telephony path for an AWS account where Amazon Connect, DynamoDB, and Lambda are allowed. The event build uses Twilio (voice/) and CloudWatch Logs instead, because the event account blocks those services.
 """
 from pilotlight import connect, incidents, timeline
 

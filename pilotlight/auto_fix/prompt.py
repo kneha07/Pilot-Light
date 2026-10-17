@@ -1,4 +1,4 @@
-"""Claude Code agent prompt template for the Auto-Fix pipeline."""
+"""Claude Code agent prompt template for the Auto-Fix pipeline (PR mode). Original by Harika."""
 
 AGENT_PROMPT = """\
 You are the Pilot Light Auto-Fix agent. Your job is to implement a single \
@@ -19,7 +19,11 @@ remediation task extracted from an incident postmortem.
 {task_json}
 ```
 
-### Past fixes for similar issues
+### Postmortem (from the Box incident folder)
+
+{postmortem}
+
+### Box AI analysis
 
 {past_fixes_context}
 
@@ -29,20 +33,17 @@ Follow these steps exactly:
 
 ### 1. Read incident artifacts
 
-Check the samples/ directory or the repo root for postmortem.md and transcript.md. \
-Use the task description and the past fixes context above to understand the root \
-cause, affected components, and the specific task you must fix.
+Use the postmortem, the Box AI analysis, and the task description above to understand \
+the root cause, affected components, and the specific task you must fix.
 
 ### 2. Read relevant source files
 
 Navigate the repository and read the source files related to the task. \
 Identify the minimal set of files that need to change.
 
-### 3. Create a feature branch
+### 3. Confirm the branch
 
-```bash
-git checkout -b auto-fix/{incident_id}/{task_id}
-```
+You are already on branch `{branch}` in an isolated worktree. Do not switch branches.
 
 ### 4. Implement the fix
 
@@ -78,7 +79,7 @@ git commit -m "[{incident_id}] {task_title}"
 ### 8. Push
 
 ```bash
-git push --set-upstream origin auto-fix/{incident_id}/{task_id}
+git push --set-upstream origin {branch}
 ```
 
 ### 9. Create pull request

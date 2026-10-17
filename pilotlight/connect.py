@@ -1,4 +1,7 @@
-"""Amazon Connect helpers: outbound call, AI agent session lookup, transcript, spoken confirmation."""
+"""Amazon Connect helpers: outbound call, AI agent session lookup, transcript, spoken confirmation.
+
+Production telephony path for an AWS account where Amazon Connect, DynamoDB, and Lambda are allowed. The event build uses Twilio (voice/) and CloudWatch Logs instead, because the event account blocks those services.
+"""
 import re
 import time
 

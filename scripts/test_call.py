@@ -1,31 +1,41 @@
 #!/usr/bin/env python3
-"""Place a Pilot Light call without breaking checkout. For phone testing the Connect flow and AI agent.
+"""Place a real Pilot Light phone call for an existing incident, without breaking checkout.
 
-Creates a test incident record (status open) with a fixed briefing, then calls ONCALL_PHONE.
-Usage: python scripts/test_call.py
+Asks the running voice server to call ONCALL_PHONE through Twilio. The voice server and ngrok
+must be up, and VOICE_SERVER_URL must be set in .env.
+
+Usage: python scripts/test_call.py [INCIDENT_ID] --yes      (defaults to the latest incident)
 """
-import datetime
+import argparse
+import json
 import sys
+import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from pilotlight import connect, incidents, timeline  # noqa: E402
-from pilotlight.config import ONCALL_PHONE  # noqa: E402
+from pilotlight import incidents  # noqa: E402
+from pilotlight.config import ONCALL_PHONE, VOICE_SERVER_URL  # noqa: E402
 
-if not connect.configured():
-    sys.exit("Set CONNECT_INSTANCE_ID, CONNECT_CONTACT_FLOW_ID, ONCALL_PHONE and "
-             "CONNECT_SOURCE_PHONE (or CONNECT_QUEUE_ID) in .env")
+ap = argparse.ArgumentParser()
+ap.add_argument("incident_id", nargs="?")
+ap.add_argument("--yes", action="store_true", help="confirm placing a real, billed phone call")
+a = ap.parse_args()
 
-now = datetime.datetime.now(datetime.timezone.utc)
-iid = "INC-" + now.strftime("%Y%m%d-%H%M%S") + "-TEST"
-briefing = ("This is a test call. Checkout API is failing with payment timeouts. "
-            "The fail mode flag was turned on a few minutes ago.")
-incidents.put({"incident_id": iid, "service": "checkout-api", "alarm_name": "test",
-    "started_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "status": "open",
-    "box_folder_id": "", "runbook_file_id": "", "briefing_text": briefing, "oncall_phone": ONCALL_PHONE})
-timeline.add(iid, "briefing", briefing)
-contact_id = connect.start_call(iid, briefing)
-incidents.update(iid, contact_id=contact_id)
-timeline.add(iid, "call", f"Test call to number ending in {ONCALL_PHONE[-4:]} (contact {contact_id})")
-print(f"{iid}: calling {ONCALL_PHONE[-4:]}, contact {contact_id}")
+if not VOICE_SERVER_URL:
+    sys.exit("Set VOICE_SERVER_URL in .env and start the voice server and ngrok.")
+rec = incidents.get(a.incident_id) if a.incident_id else incidents.latest()
+if not rec:
+    sys.exit(f"Incident not found: {a.incident_id or '(no incidents yet)'}")
+iid = rec["incident_id"]
+
+print(f"WARNING: this places a REAL phone call to the number ending in {ONCALL_PHONE[-4:]} for {iid}.")
+print("It uses Twilio and Bedrock credit.")
+if not a.yes:
+    sys.exit("Rerun with --yes to place the call.")
+
+req = urllib.request.Request(f"{VOICE_SERVER_URL}/call", method="POST",
+                             data=json.dumps({"incident_id": iid}).encode(),
+                             headers={"Content-Type": "application/json"})
+with urllib.request.urlopen(req, timeout=15) as r:
+    print(f"{iid}: {r.read().decode()}")

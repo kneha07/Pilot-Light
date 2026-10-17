@@ -6,7 +6,7 @@ import re
 import boto3
 
 from . import timeline, tools
-from .config import AWS_REGION, TEXT_MODEL_ID
+from .config import AWS_REGION, REQUIRE_SPOKEN_CONFIRM, TEXT_MODEL_ID
 
 MODEL_ID = TEXT_MODEL_ID or "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 MAX_TOOL_ROUNDS = 6
@@ -107,7 +107,9 @@ class IncidentAgent:
                 return tools.ask_runbook(iid, str(args.get("question", "")))
             if name == "execute_remediation":
                 # Code-level gate: the model's confirmed flag counts only if the engineer said "confirm"
-                confirmed = bool(args.get("confirmed")) and bool(_CONFIRM.search(self._last_user))
+                confirmed = bool(args.get("confirmed"))
+                if REQUIRE_SPOKEN_CONFIRM:
+                    confirmed = confirmed and bool(_CONFIRM.search(self._last_user))
                 return tools.execute_remediation(iid, str(args.get("action", "")), confirmed)
             return f"Unknown tool {name}."
         except Exception as e:

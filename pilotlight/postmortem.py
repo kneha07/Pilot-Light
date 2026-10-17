@@ -2,7 +2,9 @@
 
 CLI: python -m pilotlight.postmortem INCIDENT_ID [TRANSCRIPT_FILE]
 """
+import os
 import sys
+import threading
 
 import boto3
 
@@ -40,7 +42,31 @@ def generate(incident_id: str, folder_id: str, transcript: str) -> str:
     box_tools.create_review_task(file_id, f"Review postmortem for {incident_id}")
     timeline.add(incident_id, "postmortem", "Postmortem drafted in Box and assigned for review")
     incidents.update(incident_id, status="resolved")
+    _start_auto_fix(incident_id)
     return md
+
+
+def _start_auto_fix(incident_id: str) -> None:
+    """Draft the auto-fix plan in the background; it can never break call teardown."""
+    if os.getenv("AUTO_FIX_ENABLED", "true").lower() == "false":
+        return
+
+    def plan():
+        try:
+            from .auto_fix.__main__ import run
+            run(incident_id, mode="plan")
+        except Exception as e:
+            print(f"[auto_fix] plan failed for {incident_id}: {e}")
+            try:
+                timeline.add(incident_id, "autofix", f"Auto-fix plan failed: {e}")
+            except Exception:
+                pass
+
+    try:
+        timeline.add(incident_id, "autofix", "Auto-fix plan started")
+        threading.Thread(target=plan, daemon=True, name=f"autofix-{incident_id}").start()
+    except Exception as e:
+        print(f"[auto_fix] could not start for {incident_id}: {e}")
 
 
 if __name__ == "__main__":

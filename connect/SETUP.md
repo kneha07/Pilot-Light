@@ -1,5 +1,7 @@
 # Amazon Connect and Nova Sonic setup
 
+> Production telephony path for an AWS account where Amazon Connect, DynamoDB, and Lambda are allowed. The event build uses Twilio (voice/) and CloudWatch Logs instead, because the event account blocks those services.
+
 Pilot Light calls the on-call engineer through Amazon Connect. Nova Sonic runs inside Connect as the speech-to-speech model of a Conversational AI bot. An orchestrator AI agent behind that bot calls Pilot Light tools over MCP through an Amazon Bedrock AgentCore Gateway, which invokes the `pilotlight-tools` Lambda.
 
 ```

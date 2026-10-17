@@ -1,6 +1,8 @@
 """Hang-up Lambda. Invoked by EventBridge when a Pilot Light Connect contact disconnects.
 
 Copies the AI agent transcript into the timeline and closes the incident.
+
+Production telephony path for an AWS account where Amazon Connect, DynamoDB, and Lambda are allowed. The event build uses Twilio (voice/) and CloudWatch Logs instead, because the event account blocks those services.
 """
 import datetime
 

@@ -7,9 +7,16 @@ import urllib.request
 from pilotlight import aws_tools, box_tools, incidents, timeline
 from pilotlight.config import ONCALL_PHONE, VOICE_SERVER_URL
 
+DEDUPE_MINUTES = 30  # an open incident older than this no longer suppresses a new one
+
 
 def handler(event, context=None):
     alarm = event["detail"]["alarmName"]
+    existing = incidents.latest_open(alarm, within_minutes=DEDUPE_MINUTES)
+    if existing:
+        timeline.add(existing["incident_id"], "alarm", f"{alarm} entered ALARM again, existing incident kept")
+        return {"incident_id": existing["incident_id"], "deduplicated": True}
+
     now = datetime.datetime.now(datetime.timezone.utc)
     iid = "INC-" + now.strftime("%Y%m%d-%H%M%S")
     timeline.add(iid, "alarm", f"{alarm} entered ALARM")

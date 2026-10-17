@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Create Box metadata templates for Pilot Light auto-fix.
+"""Create the Box metadata templates the auto-fix pipeline uses: autoFixTask and incident.
+Separate from scripts/box_setup.py, which handles the runbook template, folders, and collaborators.
 
-Run once:
+Run once (writes to Box):
     python scripts/box_setup_metadata.py
 """
 
 import sys
+from pathlib import Path
 
 from box_sdk_gen.box.errors import BoxAPIError
 from box_sdk_gen.managers.metadata_templates import (
@@ -14,11 +16,9 @@ from box_sdk_gen.managers.metadata_templates import (
     CreateMetadataTemplateFieldsOptionsField,
 )
 
-# Adjust path so we can import from project root
-sys.path.insert(0, ".")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from pilotlight.auto_fix.box_helpers import get_client  # noqa: E402
-from pilotlight.config import BOX_ENTERPRISE_ID  # noqa: E402
+from pilotlight.box_client import client as get_client  # noqa: E402
 
 
 def _enum_options(values: list[str]) -> list[CreateMetadataTemplateFieldsOptionsField]:
