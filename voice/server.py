@@ -4,14 +4,16 @@ Run: uvicorn voice.server:app --port 8000   (expose with ngrok, set VOICE_SERVER
 """
 import asyncio
 import base64
+import hmac
 import json
+import os
 from urllib.parse import urlencode
 from xml.sax.saxutils import quoteattr
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, Response
 
-from pilotlight import incidents, postmortem, timeline
+from pilotlight import flags, incidents, postmortem, timeline
 from pilotlight.config import (ONCALL_PHONE, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN,
                                TWILIO_FROM_NUMBER, VOICE_SERVER_URL)
 
@@ -21,6 +23,19 @@ from .sonic import SonicSession
 FRAME = 160  # 20ms of 8 kHz mu-law
 
 app = FastAPI(title="Pilot Light voice server")
+
+
+@app.post("/demo/{action}")
+async def demo(action: str, request: Request):
+    """Demo trigger for the dashboard's Break something button. Requires DEMO_TRIGGER_TOKEN; touches only fail_mode."""
+    token = os.getenv("DEMO_TRIGGER_TOKEN", "")
+    if not token or not hmac.compare_digest(request.headers.get("x-demo-token", ""), token):
+        return JSONResponse(status_code=403, content={"error": "forbidden"})
+    if action not in ("break", "reset"):
+        return JSONResponse(status_code=404, content={"error": "unknown action"})
+    value = "on" if action == "break" else "off"
+    previous = await asyncio.to_thread(flags.set_, value, "dashboard operator")
+    return {"fail_mode": value, "previous": previous}
 
 
 @app.get("/health")

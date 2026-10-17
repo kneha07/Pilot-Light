@@ -10,8 +10,10 @@ import hashlib
 import hmac
 import json
 import secrets
+import os
 import threading
 import time
+import urllib.request
 from collections import defaultdict, deque
 from pathlib import Path
 from urllib.parse import quote
@@ -99,6 +101,24 @@ async def login(body: dict, request: Request, response: Response):
     response.set_cookie(COOKIE, _make_token(DASHBOARD_USER), max_age=SESSION_SECONDS, httponly=True,
                         samesite="strict", secure=_is_https(request))
     return {"user": DASHBOARD_USER}
+
+
+@app.post("/api/demo/{action}")
+async def demo_action(action: str, user: str = Depends(current_user)):
+    """Break or reset the demo service on the demo laptop through the voice server."""
+    if action not in ("break", "reset"):
+        raise HTTPException(status_code=404, detail="unknown action")
+    token = os.getenv("DEMO_TRIGGER_TOKEN", "")
+    if not (VOICE_SERVER_URL and token):
+        raise HTTPException(status_code=503, detail="demo trigger not configured")
+    req = urllib.request.Request(f"{VOICE_SERVER_URL}/demo/{action}", method="POST", data=b"{}",
+                                 headers={"Content-Type": "application/json", "x-demo-token": token})
+    try:
+        with urllib.request.urlopen(req, timeout=8) as r:
+            return json.loads(r.read() or b"{}")
+    except Exception as e:
+        print(f"[dashboard] demo {action} failed: {e}")
+        raise HTTPException(status_code=502, detail="demo laptop not reachable; is the voice server and ngrok running?")
 
 
 @app.post("/api/logout")

@@ -196,6 +196,13 @@
   .step.done .v { color: var(--ok); }
   .step .d { font-size: 12px; color: var(--dim); margin-top: 2px; font-family: ui-monospace, monospace; }
   @media (max-width: 900px) { .stepper { grid-template-columns: repeat(2, 1fr); } }
+  .demo { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px;
+          border: 1px solid rgba(255, 77, 94, .35); background: linear-gradient(90deg, rgba(255,77,94,.10), transparent); }
+  .demo h3 { margin: 0 0 4px; font-size: 18px; }
+  .btn-break { background: #ff4d5e; color: #fff; border: 0; border-radius: 10px; padding: 14px 22px; font-size: 16px;
+               font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .btn-break:disabled { opacity: .5; cursor: default; }
+  .btn-ghost { background: transparent; color: var(--dim); border: 1px solid #323a4a; border-radius: 10px; padding: 10px 14px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -582,6 +589,32 @@ function recordsCard(inc, links, rows) {
     extLink("Timeline in CloudWatch Logs", links && links.timeline_logs, "Raw log stream"));
 }
 
+let demoNote = "";
+
+function demoCard(s) {
+  const broken = s.fail_mode === "on" || s.alarm_state === "ALARM";
+  const btn = h("button", { class: "btn-break" }, broken ? "Incident in progress" : "Break something");
+  btn.disabled = broken;
+  btn.addEventListener("click", async () => {
+    if (!confirm("Break checkout-api now? Pilot Light will call the on-call phone.")) return;
+    btn.disabled = true; btn.textContent = "Breaking...";
+    try {
+      await api("/api/demo/break", { method: "POST" });
+      demoNote = "checkout-api is broken. Alarm in about 5 seconds, the on-call phone rings in about 20.";
+    } catch (e) { demoNote = "Could not reach the demo laptop: " + (e.message || e); btn.disabled = false; btn.textContent = "Break something"; }
+    location.hash = "live";
+  });
+  const reset = h("button", { class: "btn-ghost" }, "Reset service");
+  reset.addEventListener("click", async () => {
+    try { await api("/api/demo/reset", { method: "POST" }); demoNote = "Service reset: fail_mode is off."; }
+    catch (e) { demoNote = "Reset failed: " + (e.message || e); }
+  });
+  return h("div", { class: "card demo" },
+    h("div", {}, h("h3", {}, "Run the live demo"),
+      h("div", { class: "muted" }, demoNote || "Flip the break switch on checkout-api and watch Pilot Light detect, call, fix, and document it.")),
+    h("div", { style: "display:flex; gap:10px; align-items:center" }, reset, btn));
+}
+
 async function live(token) {
   const [s, ev] = await Promise.all([api("/api/status"), api("/api/events?minutes=5")]);
   let detail = null;
@@ -621,7 +654,7 @@ async function live(token) {
         h("div", { class: "empty" }, "No incidents yet. When the alarm fires, the live incident appears here.")),
       guardrails())];
   }
-  setView(offlineBanner(ev) || "", cards, ...incidentBlock);
+  setView(offlineBanner(ev) || "", demoCard(s), cards, ...incidentBlock);
 }
 
 async function incidents(token) {
