@@ -203,6 +203,11 @@
                font-weight: 700; cursor: pointer; white-space: nowrap; }
   .btn-break:disabled { opacity: .5; cursor: default; }
   .btn-ghost { background: transparent; color: var(--dim); border: 1px solid #323a4a; border-radius: 10px; padding: 10px 14px; cursor: pointer; }
+  .integ { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 10px 0; border-top: 1px solid #222838; }
+  .integ:first-of-type { border-top: 0; }
+  .integ b { display: block; }
+  .integ span.muted { font-size: 13px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin: -4px 0 16px; }
 </style>
 </head>
 <body>
@@ -250,6 +255,7 @@
 
 // Icons are constant path data, never built from server data
 const ICONS = {
+  plug: "M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z",
   flame: "M12 2c1 3 4 5.5 4 9.5a4 4 0 0 1-8 0c0-2 1-3.3 2-4.3 0 2 1 3 2 3 0-3-1-5.2 0-8.2z",
   bell: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0",
   doc: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8",
@@ -274,8 +280,57 @@ const NAV = [
     { id: "incidents", label: "Incidents", icon: "list" },
     { id: "events", label: "Events", icon: "activity" },
     { id: "links", label: "Consoles", icon: "link" },
+    { id: "integrations", label: "Integrations", icon: "plug" },
   ]},
   { group: "Product", items: [{ id: "roadmap", label: "Roadmap", icon: "map" }] },
+];
+
+// status: connected (used in this build), built (code in the repo, not enabled here), planned (roadmap only)
+const INTEGRATIONS = [
+  ["Connected now", [
+    ["Amazon Bedrock", "Nova 2 Sonic voice agent; Nova 2 Lite postmortems and auto-fix plans", "connected"],
+    ["Amazon CloudWatch Logs", "Service logs, Logs Insights, Live Tail, incident timeline store", "connected"],
+    ["AWS IAM", "Read-only key that powers this dashboard", "connected"],
+    ["Box", "Runbooks by metadata, Box AI answers, incident folders, review tasks", "connected"],
+    ["Twilio Programmable Voice", "Outbound on-call calls and Media Streams audio", "connected"],
+    ["GitHub", "A pull request for every approved fix; auto-fix pull requests", "connected"],
+    ["Claude Code", "Implements auto-fix tasks in an isolated worktree", "connected"],
+    ["Vercel", "Hosts this dashboard", "connected"],
+    ["ngrok", "Secure tunnel to the voice server", "connected"],
+  ]],
+  ["MCP connections", [
+    ["Box MCP server", "Runbooks and incident folders as agent tools", "planned"],
+    ["GitHub MCP server", "Read recent commits and deploys for what changed", "planned"],
+    ["AWS MCP servers", "CloudWatch and CloudTrail as agent tools", "planned"],
+    ["Slack MCP server", "Post incident updates and read the incident channel", "planned"],
+    ["Atlassian MCP server", "Jira tickets for action items, Confluence runbooks", "planned"],
+  ]],
+  ["Cloud providers", [
+    ["Amazon Web Services", "Bedrock, CloudWatch Logs, IAM", "connected"],
+    ["Google Cloud", "Cloud Logging and Cloud Monitoring as signal sources", "planned"],
+    ["Microsoft Azure", "Azure Monitor as a signal source", "planned"],
+  ]],
+  ["Observability", [
+    ["Amazon CloudWatch Logs", "Alarm source today", "connected"],
+    ["Amazon CloudWatch alarms and EventBridge", "Serverless alarm path in infra/stack.py", "built"],
+    ["Datadog", "Monitors and logs as alarm sources", "planned"],
+    ["Grafana and Prometheus", "Alertmanager webhooks", "planned"],
+    ["OpenTelemetry", "Traces in the briefing", "planned"],
+    ["Splunk and New Relic", "Log and APM queries for the agent", "planned"],
+  ]],
+  ["CI/CD and change sources", [
+    ["GitHub pull requests", "Rollback and auto-fix PRs", "connected"],
+    ["GitHub Actions", "Recent deploys in what changed", "planned"],
+    ["AWS CodePipeline", "Pipeline runs and rollbacks", "planned"],
+    ["Argo CD and Jenkins", "Deploy history and rollback actions", "planned"],
+    ["LaunchDarkly", "Feature flag changes in what changed", "planned"],
+  ]],
+  ["Paging and communication", [
+    ["Twilio voice", "Calls the on-call engineer", "connected"],
+    ["Amazon Connect", "Production telephony path, code in connect/ and services/", "built"],
+    ["PagerDuty and Opsgenie", "On-call schedules and escalation", "planned"],
+    ["Slack and Microsoft Teams", "Incident channel updates", "planned"],
+  ]],
 ];
 
 const ROADMAP = [
@@ -466,7 +521,7 @@ function route() {
   const arg = slash < 0 ? "" : decodeURIComponent(raw.slice(slash + 1));
   renderNav(id === "incidents" && arg ? "incidents" : id);
   if (id === "incidents" && arg) return poll((t) => incidentDetail(t, arg));
-  const views = { live, incidents, events, links, roadmap };
+  const views = { live, incidents, events, links, integrations, roadmap };
   const fn = views[id] || live;
   if (fn === live || fn === events) return poll(fn);
   return once(fn);
@@ -764,6 +819,22 @@ async function links(token) {
     h("p", { class: "sub" }, "The systems behind Pilot Light. Links open in a new tab; AWS links need the Pilot Light account signed in."),
     h("div", { class: "grid links" }, sections.map((s) => h("div", { class: "card" }, h("h2", {}, s.title || ""),
       (Array.isArray(s.links) ? s.links : []).map((l) => extLink(l.label || "", l.url, l.detail))))));
+}
+
+async function integrations(token) {
+  if (token !== viewToken) return;
+  renderTopbar(null);
+  const all = INTEGRATIONS.flatMap(([, items]) => items);
+  const count = (st) => all.filter((i) => i[2] === st).length;
+  const badge = (st) => h("span", { class: "pill " + ({ connected: "ok", built: "warn" }[st] || "") },
+    { connected: "Connected", built: "Built, not enabled", planned: "Planned" }[st]);
+  setView(h("h1", {}, "Integrations"),
+    h("p", { class: "sub" }, "What Pilot Light connects to. Connected means it runs in this build; Built means the code is in the repo but this event account does not allow the service; Planned is roadmap."),
+    h("div", { class: "legend" }, badge("connected"), h("span", { class: "muted" }, String(count("connected"))),
+      badge("built"), h("span", { class: "muted" }, String(count("built"))),
+      badge("planned"), h("span", { class: "muted" }, String(count("planned")))),
+    h("div", { class: "grid links" }, INTEGRATIONS.map(([title, items]) => h("div", { class: "card" }, h("h2", {}, title),
+      items.map(([name, detail, st]) => h("div", { class: "integ" }, h("div", {}, h("b", {}, name), h("span", { class: "muted" }, detail)), badge(st)))))));
 }
 
 async function roadmap(token) {
