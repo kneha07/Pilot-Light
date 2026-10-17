@@ -564,6 +564,7 @@ function recordsCard(inc, links, rows) {
     ["Briefing", has((r) => r.type === "briefing")],
     ["Call transcript", has((r) => r.type === "user" || r.type === "agent")],
     ["Remediation", has((r) => r.type === "action")],
+    ["Pull request", has((r) => /^Pull request opened:/.test(r.text || ""))],
     ["Postmortem and review task", has((r) => r.type === "postmortem")],
   ];
   return h("div", { class: "card" }, h("h2", {}, icon("doc"), "Incident record"),
@@ -573,6 +574,10 @@ function recordsCard(inc, links, rows) {
       return h("li", {}, ic, h("div", {}, h("b", { class: done ? "" : "muted" }, label), h("span", {}, done ? "Recorded" : "Pending")));
     })),
     h("div", { style: "margin-top:10px" }),
+    (() => {
+      const pr = rows.map((r) => /^Pull request opened: (https:\/\/github\.com\/\S+)$/.exec(r.text || "")).find(Boolean);
+      return pr ? extLink("Pull request for this fix", pr[1], pr[1].replace("https://github.com/", "")) : "";
+    })(),
     extLink("Box incident folder", links && links.box_folder, "Briefing, transcript, timeline, postmortem"),
     extLink("Timeline in CloudWatch Logs", links && links.timeline_logs, "Raw log stream"));
 }

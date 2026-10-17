@@ -82,6 +82,8 @@ def execute_remediation(incident_id: str, action: str, confirmed: bool) -> str:
         flags.set_("off", by=f"pilot-light-agent for {incident_id}")
         text = "Done. fail_mode is now off. Errors should drop within about ten seconds."
         timeline.add(incident_id, "action", f"{action}: {ALLOWED_ACTIONS[action]} (verbally confirmed)")
+        from . import revert_pr
+        revert_pr.open_in_background(incident_id)  # reviewable PR for the rollback, never blocks the call
         return text
     timeline.add(incident_id, "tool", f"execute_remediation({action}, confirmed={confirmed}): {text}")
     return text
