@@ -11,6 +11,7 @@ import hmac
 import json
 import secrets
 import os
+import re
 import threading
 import time
 import urllib.request
@@ -103,21 +104,33 @@ async def login(body: dict, request: Request, response: Response):
     return {"user": DASHBOARD_USER}
 
 
+@app.post("/api/incidents/{incident_id}/review")
+async def send_for_review(incident_id: str, user: str = Depends(current_user)):
+    """Hand the incident to reviewers and clear it from the Live view (runs on the demo laptop)."""
+    if not re.fullmatch(r"INC-\d{8}-\d{6}", incident_id):
+        raise HTTPException(status_code=404, detail="unknown incident")
+    return _forward_to_laptop(f"review?incident_id={incident_id}")
+
+
 @app.post("/api/demo/{action}")
 async def demo_action(action: str, user: str = Depends(current_user)):
     """Break or reset the demo service on the demo laptop through the voice server."""
     if action not in ("break", "reset"):
         raise HTTPException(status_code=404, detail="unknown action")
+    return _forward_to_laptop(action)
+
+
+def _forward_to_laptop(path: str) -> dict:
     token = os.getenv("DEMO_TRIGGER_TOKEN", "")
     if not (VOICE_SERVER_URL and token):
         raise HTTPException(status_code=503, detail="demo trigger not configured")
-    req = urllib.request.Request(f"{VOICE_SERVER_URL}/demo/{action}", method="POST", data=b"{}",
+    req = urllib.request.Request(f"{VOICE_SERVER_URL}/demo/{path}", method="POST", data=b"{}",
                                  headers={"Content-Type": "application/json", "x-demo-token": token})
     try:
         with urllib.request.urlopen(req, timeout=8) as r:
             return json.loads(r.read() or b"{}")
     except Exception as e:
-        print(f"[dashboard] demo {action} failed: {e}")
+        print(f"[dashboard] demo {path} failed: {e}")
         raise HTTPException(status_code=502, detail="demo laptop not reachable; is the voice server and ngrok running?")
 
 

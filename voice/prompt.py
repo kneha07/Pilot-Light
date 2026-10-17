@@ -21,12 +21,24 @@ def _runbook_text(file_id: str) -> str:
 KICKOFF = "The call just connected. Give the briefing now."
 
 
+_runbook_ids: dict[str, str] = {}
+
+
 def _find_runbook(rec: dict) -> str:
-    try:
-        from pilotlight import box_tools
-        return box_tools.find_runbook(rec.get("alarm_name", "pilotlight-checkout-5xx")) or ""
-    except Exception:
-        return ""
+    alarm = rec.get("alarm_name", "pilotlight-checkout-5xx")
+    if alarm not in _runbook_ids:
+        try:
+            from pilotlight import box_tools
+            _runbook_ids[alarm] = box_tools.find_runbook(alarm) or ""
+        except Exception:
+            return ""
+    return _runbook_ids[alarm]
+
+
+def warm(incident_id: str) -> None:
+    """Fetch the runbook into the caches while the phone rings, so the agent speaks sooner after pickup."""
+    rec = incidents.get(incident_id) or {}
+    _runbook_text(rec.get("runbook_file_id") or _find_runbook(rec))
 
 
 def build(incident_id: str) -> str:

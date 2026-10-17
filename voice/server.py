@@ -8,6 +8,7 @@ import base64
 import hmac
 import json
 import os
+import re
 from urllib.parse import urlencode
 from xml.sax.saxutils import quoteattr
 
@@ -18,6 +19,7 @@ from pilotlight import flags, incidents, postmortem, timeline
 from pilotlight.config import (ONCALL_PHONE, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN,
                                TWILIO_FROM_NUMBER, VOICE_SERVER_URL)
 
+from . import prompt
 from .audio import Converter
 from .sonic import SonicSession
 
@@ -36,6 +38,13 @@ async def demo(action: str, request: Request):
     token = os.getenv("DEMO_TRIGGER_TOKEN", "")
     if not token or not hmac.compare_digest(request.headers.get("x-demo-token", ""), token):
         return JSONResponse(status_code=403, content={"error": "forbidden"})
+    if action == "review":
+        iid = request.query_params.get("incident_id", "")
+        if not re.fullmatch(r"INC-\d{8}-\d{6}", iid) or not await asyncio.to_thread(incidents.get, iid):
+            return JSONResponse(status_code=404, content={"error": "unknown incident"})
+        await asyncio.to_thread(incidents.update, iid, status="in_review")
+        await asyncio.to_thread(timeline.add, iid, "postmortem", "Sent for review from the dashboard")
+        return {"incident_id": iid, "status": "in_review"}
     if action not in ("break", "reset"):
         return JSONResponse(status_code=404, content={"error": "unknown action"})
     value = "on" if action == "break" else "off"
@@ -62,6 +71,7 @@ async def call(body: dict):
     if missing:
         return JSONResponse(status_code=503, content={"error": f"Twilio not configured, missing: {', '.join(missing)}"})
     from twilio.rest import Client
+    asyncio.create_task(asyncio.to_thread(prompt.warm, iid))  # runbook ready before the engineer picks up
     # Twilio fetches the TwiML from /twiml; trial accounts reject inline twiml on calls.create
     c = await asyncio.to_thread(Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN).calls.create,
                                 to=ONCALL_PHONE, from_=TWILIO_FROM_NUMBER,

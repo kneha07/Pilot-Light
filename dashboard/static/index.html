@@ -353,8 +353,8 @@ function elapsed(startedAt) {
 
 function pill(v) {
   const val = String(v ?? "UNKNOWN");
-  const cls = { ALARM: "bad", OK: "ok", open: "bad", resolved: "ok", on: "bad", off: "ok" }[val] || "warn";
-  return h("span", { class: "pill " + cls }, val);
+  const cls = { ALARM: "bad", OK: "ok", open: "bad", resolved: "ok", in_review: "warn", on: "bad", off: "ok" }[val] || "warn";
+  return h("span", { class: "pill " + cls }, val === "in_review" ? "in review" : val);
 }
 
 class SignedOut extends Error {}
@@ -615,10 +615,25 @@ function demoCard(s) {
     h("div", { style: "display:flex; gap:10px; align-items:center" }, reset, btn));
 }
 
+function reviewButton(i) {
+  const b = h("button", { class: "btn-ghost", style: "margin-left:12px" }, "Send for review");
+  b.addEventListener("click", async () => {
+    if (!confirm("Send " + (i.incident_id || "this incident") + " for review and clear the live view?")) return;
+    b.disabled = true; b.textContent = "Sending...";
+    try {
+      await api("/api/incidents/" + encodeURIComponent(i.incident_id || "") + "/review", { method: "POST" });
+      demoNote = (i.incident_id || "Incident") + " sent for review. Ready for the next demo.";
+    } catch (e) { demoNote = "Send for review failed: " + (e.message || e); b.disabled = false; b.textContent = "Send for review"; }
+  });
+  return b;
+}
+
 async function live(token) {
   const [s, ev] = await Promise.all([api("/api/status"), api("/api/events?minutes=5")]);
   let detail = null;
-  if (s.latest && s.latest.incident_id) detail = await api("/api/incidents/" + encodeURIComponent(s.latest.incident_id));
+  // An incident sent for review is handed off; the Live view stays clear for the next one
+  if (s.latest && s.latest.incident_id && s.latest.status !== "in_review")
+    detail = await api("/api/incidents/" + encodeURIComponent(s.latest.incident_id));
   if (token !== viewToken) return;
   renderTopbar(s);
   const alarm = s.alarm_state === "ALARM";
@@ -638,7 +653,8 @@ async function live(token) {
       h("div", { class: "inc-head" }, h("span", { class: "id mono" }, i.incident_id || ""), pill(i.status),
         h("span", { class: "muted" }, (i.service || "") + "  |  " + (i.alarm_name || "")),
         h("span", { class: "spacer", style: "flex:1" }),
-        h("span", { class: "elapsed mono" }, open ? "Open for " + elapsed(i.started_at) : "Started " + dateTime(i.started_at))),
+        h("span", { class: "elapsed mono" }, open ? "Open for " + elapsed(i.started_at) : "Started " + dateTime(i.started_at)),
+        reviewButton(i)),
       h("p", { class: "briefing" }, i.briefing_text || ""));
     const systemRows = rows.filter((t) => t.type !== "user" && t.type !== "agent");
     incidentBlock = [head, responseTracker(rows),
@@ -651,7 +667,7 @@ async function live(token) {
   } else {
     incidentBlock = [h("div", { class: "grid two" },
       h("div", { class: "card" }, h("h2", {}, icon("activity"), "Checkout errors, live (5s buckets)"), chart(ev),
-        h("div", { class: "empty" }, "No incidents yet. When the alarm fires, the live incident appears here.")),
+        h("div", { class: "empty" }, "No active incident. Ready for the demo: click Break something above.")),
       guardrails())];
   }
   setView(offlineBanner(ev) || "", demoCard(s), cards, ...incidentBlock);
