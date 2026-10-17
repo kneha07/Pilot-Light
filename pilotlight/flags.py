@@ -14,6 +14,7 @@ from . import logstore
 from .config import CONFIG_AUDIT_LOG_GROUP, FAIL_MODE_PARAM, STATE_DIR
 
 FLAG_FILE = Path(STATE_DIR) / "fail_mode"
+AUDIT_FILE = Path(STATE_DIR) / "config_audit.jsonl"
 
 
 def get() -> str:
@@ -30,10 +31,28 @@ def set_(value: str, by: str) -> str:
     tmp = FLAG_FILE.with_suffix(".tmp")
     tmp.write_text(value)
     os.replace(tmp, FLAG_FILE)
-    logstore.put_json(CONFIG_AUDIT_LOG_GROUP, "fail_mode", {
-        "parameter": FAIL_MODE_PARAM, "from": prev, "to": value, "by": by,
-        "at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")})
+    record = {"parameter": FAIL_MODE_PARAM, "from": prev, "to": value, "by": by,
+              "at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")}
+    with open(AUDIT_FILE, "a") as f:  # local copy so the incident briefing does not wait on CloudWatch ingestion
+        f.write(json.dumps(record) + "\n")
+    logstore.put_json(CONFIG_AUDIT_LOG_GROUP, "fail_mode", record)
     return prev
+
+
+def recent_changes(minutes: int) -> list[dict]:
+    """Audit records from the local copy within the last N minutes, oldest first."""
+    if not AUDIT_FILE.exists():
+        return []
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=minutes)
+    out = []
+    for line in AUDIT_FILE.read_text().splitlines():
+        try:
+            r = json.loads(line)
+            if datetime.datetime.fromisoformat(r["at"]) >= cutoff:
+                out.append(r)
+        except (ValueError, KeyError):
+            continue
+    return out
 
 
 if __name__ == "__main__":

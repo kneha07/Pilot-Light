@@ -21,12 +21,20 @@ def _runbook_text(file_id: str) -> str:
 KICKOFF = "The call just connected. Give the briefing now."
 
 
+def _find_runbook(rec: dict) -> str:
+    try:
+        from pilotlight import box_tools
+        return box_tools.find_runbook(rec.get("alarm_name", "pilotlight-checkout-5xx")) or ""
+    except Exception:
+        return ""
+
+
 def build(incident_id: str) -> str:
     rec = incidents.get(incident_id) or {}
     briefing = rec.get("briefing_text") or "No briefing recorded. Use the get_briefing tool."
     return (SYSTEM_PROMPT.format(incident_id=incident_id)
             + f"\n\nBriefing: {briefing}"
-            + (f"\n\nRunbook for this alarm (you may quote it without a tool call):\n{rb}" if (rb := _runbook_text(rec.get("runbook_file_id", ""))) else "")
+            + (f"\n\nRunbook for this alarm (you may quote it without a tool call):\n{rb}" if (rb := _runbook_text(rec.get("runbook_file_id") or _find_runbook(rec))) else "")
             + "\n\nCall flow:"
             + "\n- Open with: Pilot Light here. There is an incident on checkout API. Then give the briefing in two short sentences."
             + "\n- When the engineer asks what changed, call what_changed and query_logs, then answer in three short sentences:"

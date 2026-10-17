@@ -56,8 +56,8 @@ def query_logs(incident_id: str, minutes: int = 15) -> str:
 
 
 def what_changed(incident_id: str, minutes: int = 60) -> str:
-    changes = []
-    for e in logstore.recent(CONFIG_AUDIT_LOG_GROUP, minutes * 60):
+    changes = flags.recent_changes(minutes)  # local copy first: no CloudWatch ingestion delay
+    for e in ([] if changes else logstore.recent(CONFIG_AUDIT_LOG_GROUP, minutes * 60)):
         try:
             changes.append(json.loads(e["message"]))
         except ValueError:

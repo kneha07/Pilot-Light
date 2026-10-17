@@ -40,7 +40,12 @@ async def demo(action: str, request: Request):
         return JSONResponse(status_code=404, content={"error": "unknown action"})
     value = "on" if action == "break" else "off"
     previous = await asyncio.to_thread(flags.set_, value, "dashboard operator")
-    return {"fail_mode": value, "previous": previous}
+    closed = []
+    if action == "reset":  # a clean slate: open incidents would otherwise dedupe the next break and skip the call
+        while (rec := await asyncio.to_thread(incidents.latest_open)) is not None:
+            await asyncio.to_thread(incidents.update, rec["incident_id"], status="resolved")
+            closed.append(rec["incident_id"])
+    return {"fail_mode": value, "previous": previous, "closed_incidents": closed}
 
 
 @app.get("/health")
