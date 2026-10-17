@@ -4,7 +4,7 @@ Persons 1 and 3 replace the stub bodies with real implementations.
 Person 2 (voice agent) calls these. Every function returns short, speakable text.
 Keep the signatures unchanged.
 """
-from . import aws_tools, timeline
+from . import aws_tools, box_tools, timeline
 
 
 def query_logs(incident_id: str, minutes: int = 15) -> str:
@@ -18,13 +18,13 @@ def what_changed(incident_id: str, minutes: int = 60) -> str:
 
 
 def ask_runbook(incident_id: str, question: str) -> str:
-    """Box AI Q&A over the incident's runbook. (P3) STUB"""
-    return "The runbook says: if fail_mode is on, revert it to off, then confirm the error rate drops within two minutes."
+    """Box AI Q&A over the incident's runbook. (P3)"""
+    return box_tools.ask_runbook(incident_id, question)
 
 
 def get_briefing(incident_id: str) -> str:
-    """Spoken opening briefing for the on-call engineer. (P3) STUB"""
-    return "Checkout API error rate spiked at 10:02. The fail mode flag was changed three minutes earlier."
+    """Spoken opening briefing for the on-call engineer. (P3)"""
+    return box_tools.get_briefing(incident_id)
 
 
 def execute_remediation(incident_id: str, action: str, confirmed: bool) -> str:

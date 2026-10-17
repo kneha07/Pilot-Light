@@ -1,5 +1,7 @@
 import os
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 from aws_cdk import (
@@ -38,6 +40,10 @@ def build_incident_asset() -> str:
     shutil.copytree(ROOT / "services" / "incident", out)
     shutil.copytree(ROOT / "pilotlight", out / "pilotlight",
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    # box_tools imports box_sdk_gen; install Linux wheels for the Lambda runtime
+    subprocess.run([sys.executable, "-m", "pip", "install", "box-sdk-gen", "-t", str(out),
+                    "--platform", "manylinux2014_x86_64", "--python-version", "3.12",
+                    "--only-binary=:all:", "--quiet"], check=True)
     return str(out)
 
 

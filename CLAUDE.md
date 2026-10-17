@@ -36,13 +36,14 @@ Last updated: Fri Oct 16, 2026.
 - [x] `scripts/`: `traffic.sh`, `break.sh`, `fix.sh`, `force_alarm.sh`, `status.sh`
 - [x] Pushed to `main` (commit `b184c93`)
 
+- [x] Box built and tested against real Box (Fri Oct 16): `box_client.py`, real `box_tools.py`, `postmortem.py`, `scripts/box_setup.py`, `runbooks/checkout-5xx.md`; `get_briefing` and `ask_runbook` wired in `tools.py`. Verified: CCG auth, `box_setup.py` (folders, `runbook` template, runbook metadata), `find_runbook`, `create_incident_folder` (idempotent), `write_briefing` (new version on rewrite), `ask_runbook` via Box AI, `create_review_task`; `build_incident_asset()` installs `box-sdk-gen`
+
 ### Not done (in order)
 - [ ] `aws login` by Zain (interactive), `cdk bootstrap`, `cdk deploy`
 - [ ] Test: traffic → break → alarm ALARM within ~30s → `status.sh` shows incident and timeline rows → fix → alarm OK
-- [ ] Box: `box_client.py`, `scripts/box_setup.py`, real `box_tools.py`, `runbooks/checkout-5xx.md` (needs P3's credentials)
-- [ ] Incident Lambda dependencies: once `box_tools` imports `box_sdk_gen`, `build_incident_asset()` in `infra/stack.py` must also `pip install box-sdk-gen` into `build/incident/`
+- [ ] Box: send the six Box values to Zain for the Incident Lambda env, then redeploy. Test `postmortem.generate` once `TEXT_MODEL_ID` is set. Delete the `INC-TEST-0001` test folder in `/Incidents`.
 - [ ] Voice: `voice/sonic.py`, `voice/prompt.py`, `voice/audio.py`, `voice/server.py` (terminal mic first, then phone)
-- [ ] `pilotlight/postmortem.py`, wired to hang-up
+- [ ] Wire `postmortem.generate` to hang-up in the voice server
 - [ ] Idempotency: skip creating a new incident if one is already open for the same alarm (promised in the README)
 - [ ] Code-level confirm check in the voice server (promised in the README)
 - [ ] Stretch: timeline page. README services list and architecture are already written.
@@ -60,7 +61,7 @@ Last updated: Fri Oct 16, 2026.
 ## 5. Open decisions
 
 - **Telephony: Twilio or Amazon Connect.** The build plan specifies Twilio Media Streams. `README.md` says Amazon Connect. Confirm with Zain before writing `voice/server.py`.
-- **Box AI Q&A** availability on the developer account. If disabled, `ask_runbook` uses Bedrock over the runbook text.
+- **Box AI Q&A:** resolved, enabled on the developer account. The Bedrock fallback in `ask_runbook` stays as a backup.
 - **Text model ID** for the postmortem (P2 to confirm in the Bedrock playground).
 
 ## 6. Commands
