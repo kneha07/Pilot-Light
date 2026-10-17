@@ -203,11 +203,26 @@
                font-weight: 700; cursor: pointer; white-space: nowrap; }
   .btn-break:disabled { opacity: .5; cursor: default; }
   .btn-ghost { background: transparent; color: var(--dim); border: 1px solid #323a4a; border-radius: 10px; padding: 10px 14px; cursor: pointer; }
-  .integ { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 10px 0; border-top: 1px solid #222838; }
-  .integ:first-of-type { border-top: 0; }
-  .integ b { display: block; }
-  .integ span.muted { font-size: 13px; }
-  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin: -4px 0 16px; }
+  .integ-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  .seg { display: inline-flex; border: 1px solid #262c39; border-radius: 10px; padding: 3px; background: #11151d; }
+  .seg-btn { background: transparent; border: 0; color: var(--dim); padding: 7px 12px; border-radius: 7px; cursor: pointer; font-size: 13px; }
+  .seg-btn.on { background: #1d2330; color: var(--text); }
+  .integ-sec { margin-top: 22px; }
+  .integ-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+  .integ-head h2 { margin: 0; font-size: 15px; }
+  .integ-head .muted { font-size: 13px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+  .tile { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid #222838; border-radius: 12px; background: #141922; min-width: 0; }
+  .mono-av { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
+  .tile-body { flex: 1; min-width: 0; }
+  .tile-name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile-detail { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dot { font-size: 11px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; flex: none; }
+  .dot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #4b5468; }
+  .dot.connected { color: var(--ok); }
+  .dot.connected::before { background: var(--ok); }
+  .dot.built { color: #f5b14c; }
+  .dot.built::before { background: #f5b14c; }
 </style>
 </head>
 <body>
@@ -285,51 +300,81 @@ const NAV = [
   { group: "Product", items: [{ id: "roadmap", label: "Roadmap", icon: "map" }] },
 ];
 
-// status: connected (used in this build), built (code in the repo, not enabled here), planned (roadmap only)
+// status: connected (runs in this build), built (code in the repo, not enabled in the event account), planned (roadmap)
 const INTEGRATIONS = [
-  ["Connected now", [
-    ["Amazon Bedrock", "Nova 2 Sonic voice agent; Nova 2 Lite postmortems and auto-fix plans", "connected"],
-    ["Amazon CloudWatch Logs", "Service logs, Logs Insights, Live Tail, incident timeline store", "connected"],
-    ["AWS IAM", "Read-only key that powers this dashboard", "connected"],
-    ["Box", "Runbooks by metadata, Box AI answers, incident folders, review tasks", "connected"],
-    ["Twilio Programmable Voice", "Outbound on-call calls and Media Streams audio", "connected"],
-    ["GitHub", "A pull request for every approved fix; auto-fix pull requests", "connected"],
-    ["Claude Code", "Implements auto-fix tasks in an isolated worktree", "connected"],
+  ["Connected now", "Running in this build", [
+    ["Amazon Bedrock", "Nova 2 Sonic voice agent, Nova 2 Lite postmortems", "connected"],
+    ["CloudWatch Logs", "Service logs, Logs Insights, Live Tail, timeline", "connected"],
+    ["AWS IAM", "Read-only key behind this dashboard", "connected"],
+    ["Box", "Runbooks, Box AI, incident folders, review tasks", "connected"],
+    ["Twilio Voice", "On-call calls and Media Streams audio", "connected"],
+    ["GitHub", "Pull request for every approved fix", "connected"],
+    ["Claude Code", "Implements auto-fix tasks", "connected"],
     ["Vercel", "Hosts this dashboard", "connected"],
     ["ngrok", "Secure tunnel to the voice server", "connected"],
   ]],
-  ["MCP connections", [
-    ["Box MCP server", "Runbooks and incident folders as agent tools", "planned"],
-    ["GitHub MCP server", "Read recent commits and deploys for what changed", "planned"],
-    ["AWS MCP servers", "CloudWatch and CloudTrail as agent tools", "planned"],
-    ["Slack MCP server", "Post incident updates and read the incident channel", "planned"],
-    ["Atlassian MCP server", "Jira tickets for action items, Confluence runbooks", "planned"],
+  ["Monitoring and observability", "Alarm sources and evidence for the briefing", [
+    ["Datadog", "Monitors, logs, and APM traces", "planned"],
+    ["Splunk", "Log search and alerts", "planned"],
+    ["Grafana", "Dashboards and alert rules", "planned"],
+    ["Prometheus", "Metrics via Alertmanager webhooks", "planned"],
+    ["New Relic", "APM and error analytics", "planned"],
+    ["Dynatrace", "Problems and root cause hints", "planned"],
+    ["Elastic", "Elasticsearch logs and Kibana alerts", "planned"],
+    ["Honeycomb", "High-cardinality traces", "planned"],
+    ["Sentry", "Application exceptions and releases", "planned"],
+    ["OpenTelemetry", "Vendor-neutral traces and metrics", "planned"],
+    ["AWS X-Ray", "Distributed traces on AWS", "planned"],
+    ["CloudWatch alarms", "Serverless alarm path in infra/stack.py", "built"],
   ]],
-  ["Cloud providers", [
+  ["Reliability and incident management", "On-call, escalation, SLOs, and resilience", [
+    ["PagerDuty", "Schedules, escalation, incident sync", "planned"],
+    ["Opsgenie", "On-call schedules and alerts", "planned"],
+    ["incident.io", "Incident channels and roles", "planned"],
+    ["FireHydrant", "Incident runbooks and retros", "planned"],
+    ["Rootly", "Incident workflows in Slack", "planned"],
+    ["Grafana OnCall", "Open source on-call routing", "planned"],
+    ["Statuspage", "Customer-facing status updates", "planned"],
+    ["Nobl9", "SLOs and error budgets", "planned"],
+    ["Gremlin", "Chaos experiments to rehearse incidents", "planned"],
+    ["AWS Fault Injection Service", "Managed chaos testing on AWS", "planned"],
+  ]],
+  ["CI/CD and change sources", "What changed: deploys, flags, and infrastructure", [
+    ["GitHub Actions", "Recent workflow runs and deploys", "planned"],
+    ["GitLab CI", "Pipelines and environments", "planned"],
+    ["Jenkins", "Build and deploy history", "planned"],
+    ["CircleCI", "Pipeline runs", "planned"],
+    ["Argo CD", "GitOps syncs and rollbacks", "planned"],
+    ["Spinnaker", "Deploy pipelines and rollbacks", "planned"],
+    ["AWS CodePipeline", "Pipeline executions", "planned"],
+    ["Terraform", "Infrastructure plans and applies", "planned"],
+    ["LaunchDarkly", "Feature flag changes", "planned"],
+    ["Kubernetes", "Rollouts and pod events", "planned"],
+  ]],
+  ["MCP connections", "Model Context Protocol servers as agent tools", [
+    ["Box MCP", "Runbooks and incident folders", "planned"],
+    ["GitHub MCP", "Commits, PRs, and deploys", "planned"],
+    ["AWS MCP", "CloudWatch and CloudTrail", "planned"],
+    ["Datadog MCP", "Monitors and logs", "planned"],
+    ["Grafana MCP", "Dashboards and alerts", "planned"],
+    ["Sentry MCP", "Errors and releases", "planned"],
+    ["Slack MCP", "Incident channel context", "planned"],
+    ["Atlassian MCP", "Jira and Confluence", "planned"],
+  ]],
+  ["Cloud and runtime", "Where the services run", [
     ["Amazon Web Services", "Bedrock, CloudWatch Logs, IAM", "connected"],
-    ["Google Cloud", "Cloud Logging and Cloud Monitoring as signal sources", "planned"],
-    ["Microsoft Azure", "Azure Monitor as a signal source", "planned"],
+    ["Google Cloud", "Cloud Logging and Monitoring", "planned"],
+    ["Microsoft Azure", "Azure Monitor", "planned"],
+    ["Cloudflare", "Edge errors and traffic", "planned"],
   ]],
-  ["Observability", [
-    ["Amazon CloudWatch Logs", "Alarm source today", "connected"],
-    ["Amazon CloudWatch alarms and EventBridge", "Serverless alarm path in infra/stack.py", "built"],
-    ["Datadog", "Monitors and logs as alarm sources", "planned"],
-    ["Grafana and Prometheus", "Alertmanager webhooks", "planned"],
-    ["OpenTelemetry", "Traces in the briefing", "planned"],
-    ["Splunk and New Relic", "Log and APM queries for the agent", "planned"],
-  ]],
-  ["CI/CD and change sources", [
-    ["GitHub pull requests", "Rollback and auto-fix PRs", "connected"],
-    ["GitHub Actions", "Recent deploys in what changed", "planned"],
-    ["AWS CodePipeline", "Pipeline runs and rollbacks", "planned"],
-    ["Argo CD and Jenkins", "Deploy history and rollback actions", "planned"],
-    ["LaunchDarkly", "Feature flag changes in what changed", "planned"],
-  ]],
-  ["Paging and communication", [
-    ["Twilio voice", "Calls the on-call engineer", "connected"],
-    ["Amazon Connect", "Production telephony path, code in connect/ and services/", "built"],
-    ["PagerDuty and Opsgenie", "On-call schedules and escalation", "planned"],
-    ["Slack and Microsoft Teams", "Incident channel updates", "planned"],
+  ["Communication and ticketing", "Who hears about it and where the follow-up lives", [
+    ["Twilio Voice", "Calls the on-call engineer", "connected"],
+    ["Amazon Connect", "Production telephony path in connect/", "built"],
+    ["Slack", "Incident channel updates", "planned"],
+    ["Microsoft Teams", "Incident channel updates", "planned"],
+    ["Jira", "Action items from postmortems", "planned"],
+    ["ServiceNow", "Incident and change records", "planned"],
+    ["Linear", "Engineering follow-ups", "planned"],
   ]],
 ];
 
@@ -821,20 +866,44 @@ async function links(token) {
       (Array.isArray(s.links) ? s.links : []).map((l) => extLink(l.label || "", l.url, l.detail))))));
 }
 
+let integFilter = "all";
+
+function monogram(name) {
+  const letters = name.replace(/[^A-Za-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  let hash = 0;
+  for (const c of name) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
+  const hue = hash % 360;
+  return h("div", { class: "mono-av", style: `background:hsl(${hue} 45% 22%);color:hsl(${hue} 80% 78%)` }, letters || "?");
+}
+
 async function integrations(token) {
   if (token !== viewToken) return;
   renderTopbar(null);
-  const all = INTEGRATIONS.flatMap(([, items]) => items);
-  const count = (st) => all.filter((i) => i[2] === st).length;
-  const badge = (st) => h("span", { class: "pill " + ({ connected: "ok", built: "warn" }[st] || "") },
-    { connected: "Connected", built: "Built, not enabled", planned: "Planned" }[st]);
-  setView(h("h1", {}, "Integrations"),
-    h("p", { class: "sub" }, "What Pilot Light connects to. Connected means it runs in this build; Built means the code is in the repo but this event account does not allow the service; Planned is roadmap."),
-    h("div", { class: "legend" }, badge("connected"), h("span", { class: "muted" }, String(count("connected"))),
-      badge("built"), h("span", { class: "muted" }, String(count("built"))),
-      badge("planned"), h("span", { class: "muted" }, String(count("planned")))),
-    h("div", { class: "grid links" }, INTEGRATIONS.map(([title, items]) => h("div", { class: "card" }, h("h2", {}, title),
-      items.map(([name, detail, st]) => h("div", { class: "integ" }, h("div", {}, h("b", {}, name), h("span", { class: "muted" }, detail)), badge(st)))))));
+  const LABEL = { connected: "Connected", built: "Built", planned: "Planned" };
+  const all = INTEGRATIONS.flatMap(([, , items]) => items);
+  const seen = new Set(), unique = all.filter(([n]) => !seen.has(n) && seen.add(n));
+  const count = (st) => unique.filter((i) => i[2] === st).length;
+  const tabs = h("div", { class: "seg" }, ["all", "connected", "built", "planned"].map((f) => {
+    const b = h("button", { class: "seg-btn" + (integFilter === f ? " on" : ""), type: "button" },
+      f === "all" ? "All " + unique.length : LABEL[f] + " " + count(f));
+    b.addEventListener("click", () => { integFilter = f; integrations(viewToken); });
+    return b;
+  }));
+  const sections = INTEGRATIONS.map(([title, blurb, items]) => {
+    const shown = items.filter((i) => integFilter === "all" || i[2] === integFilter);
+    if (!shown.length) return "";
+    return h("section", { class: "integ-sec" },
+      h("div", { class: "integ-head" }, h("h2", {}, title), h("span", { class: "muted" }, blurb)),
+      h("div", { class: "tiles" }, shown.map(([name, detail, st]) => h("div", { class: "tile" },
+        monogram(name),
+        h("div", { class: "tile-body" }, h("div", { class: "tile-name" }, name), h("div", { class: "tile-detail" }, detail)),
+        h("span", { class: "dot " + st, title: LABEL[st] }, LABEL[st])))));
+  });
+  setView(h("div", { class: "integ-top" },
+      h("div", {}, h("h1", {}, "Integrations"),
+        h("p", { class: "sub" }, "Connected runs in this build. Built is in the repo but not enabled in the event account. Planned is roadmap.")),
+      tabs),
+    ...sections);
 }
 
 async function roadmap(token) {
