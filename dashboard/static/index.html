@@ -353,7 +353,7 @@ function elapsed(startedAt) {
 
 function pill(v) {
   const val = String(v ?? "UNKNOWN");
-  const cls = { ALARM: "bad", OK: "ok", open: "bad", resolved: "ok", in_review: "warn", on: "bad", off: "ok" }[val] || "warn";
+  const cls = { ALARM: "bad", OK: "ok", open: "bad", resolved: "ok", in_review: "warn", on: "bad", off: "ok", Failing: "bad", Healthy: "ok" }[val] || "warn";
   return h("span", { class: "pill " + cls }, val === "in_review" ? "in review" : val);
 }
 
@@ -628,6 +628,45 @@ function reviewButton(i) {
   return b;
 }
 
+function fmtDur(sec) {
+  sec = Math.max(0, Math.round(sec));
+  return sec < 60 ? sec + "s" : Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+}
+
+// Live incident metrics computed from the current incident's timeline and the error buckets
+function liveCards(s, ev, detail) {
+  const rows = detail && Array.isArray(detail.timeline) ? detail.timeline : [];
+  const at = (pred) => { const r = rows.find(pred); return r ? Date.parse(r.ts) : NaN; };
+  const tAlarm = at((r) => r.type === "alarm");
+  const tDial = at((r) => r.type === "call" && /^Calling/.test(r.text || ""));
+  const tConn = at((r) => r.type === "call" && /connected/i.test(r.text || ""));
+  const tEnd = at((r) => r.type === "call" && /^Call ended/.test(r.text || ""));
+  const tFix = at((r) => r.type === "action" && /revert_fail_mode/.test(r.text || ""));
+  const now = Date.now();
+  const vals = (ev.error_buckets || []).map(num), bucketMs = num(ev.bucket_seconds) * 1000 || 5000;
+  const errorsSince = (t) => vals.reduce((sum, v, i) => sum + (now - (vals.length - 1 - i) * bucketMs >= t ? v : 0), 0);
+  const last30 = vals.slice(-Math.max(1, Math.round(30000 / bucketMs))).reduce((a, b) => a + b, 0);
+  const failing = s.fail_mode === "on" || s.alarm_state === "ALARM";
+
+  const health = statCard("checkout-api", pill(failing ? "Failing" : "Healthy"),
+    !isNaN(tAlarm) && failing ? num(errorsSince(tAlarm)) + " failed checkouts this incident" : last30 + " errors in the last 30s", failing);
+
+  let callVal = "Standby", callFoot = "Ready to call the on-call phone", callAlert = false;
+  if (!isNaN(tEnd)) { callVal = "Ended " + fmtDur(((tEnd) - (isNaN(tConn) ? tDial : tConn)) / 1000); callFoot = "Postmortem and records in Box"; }
+  else if (!isNaN(tConn)) { callVal = "On call " + fmtDur((now - tConn) / 1000); callFoot = "Engineer on the line"; callAlert = true; }
+  else if (!isNaN(tDial)) { callVal = "Ringing"; callFoot = "Calling the on-call engineer"; callAlert = true; }
+  const call = statCard("Live call", callVal, callFoot, callAlert);
+
+  const toEng = !isNaN(tAlarm) && !isNaN(tConn) ? fmtDur((tConn - tAlarm) / 1000) : (!isNaN(tAlarm) && isNaN(tEnd) ? fmtDur((now - tAlarm) / 1000) + "..." : "n/a");
+  const engineer = statCard("Time to engineer", toEng, "Alarm to phone answered", false);
+
+  const toFix = !isNaN(tAlarm) && !isNaN(tFix) ? fmtDur((tFix - tAlarm) / 1000)
+    : (!isNaN(tAlarm) && isNaN(tEnd) ? fmtDur((now - tAlarm) / 1000) + "..." : "n/a");
+  const mitigate = statCard("Time to mitigate", toFix, isNaN(tFix) && !isNaN(tAlarm) && isNaN(tEnd) ? "Waiting for verbal confirm" : "Alarm to approved fix", isNaN(tFix) && !isNaN(tAlarm) && isNaN(tEnd));
+
+  return h("div", { class: "grid cards" }, health, call, engineer, mitigate);
+}
+
 async function live(token) {
   const [s, ev] = await Promise.all([api("/api/status"), api("/api/events?minutes=5")]);
   let detail = null;
@@ -636,12 +675,7 @@ async function live(token) {
     detail = await api("/api/incidents/" + encodeURIComponent(s.latest.incident_id));
   if (token !== viewToken) return;
   renderTopbar(s);
-  const alarm = s.alarm_state === "ALARM";
-  const cards = h("div", { class: "grid cards" },
-    statCard("Alarm " + (s.alarm_name || ""), pill(s.alarm_state), s.alarm_rule || "", alarm),
-    statCard("fail_mode flag", pill(s.fail_mode), "The break switch", s.fail_mode === "on"),
-    statCard("Open incidents", String(num(s.incidents_open)), num(s.incidents_total) + " total", num(s.incidents_open) > 0),
-    statCard("Errors, last 5 min", String(num(ev.errors_total)), "Voice calls " + (s.voice_server ? "enabled" : "not configured")));
+  const cards = liveCards(s, ev, detail);
 
   let incidentBlock;
   if (detail) {
