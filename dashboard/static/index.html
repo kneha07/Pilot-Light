@@ -565,6 +565,10 @@ function route() {
   const id = slash < 0 ? raw : raw.slice(0, slash);
   const arg = slash < 0 ? "" : decodeURIComponent(raw.slice(slash + 1));
   renderNav(id === "incidents" && arg ? "incidents" : id);
+  if (location.hash !== lastHash) {  // new page: show a loading state at once instead of the previous page
+    lastHash = location.hash;
+    setView(h("div", { class: "empty" }, "Loading..."));
+  }
   if (id === "incidents" && arg) return poll((t) => incidentDetail(t, arg));
   const views = { live, incidents, events, links, integrations, roadmap };
   const fn = views[id] || live;
@@ -690,6 +694,7 @@ function recordsCard(inc, links, rows) {
 }
 
 let demoNote = "";
+let lastHash = null;
 
 function demoCard(s) {
   const broken = s.fail_mode === "on" || s.alarm_state === "ALARM";
@@ -768,11 +773,10 @@ function liveCards(s, ev, detail) {
 }
 
 async function live(token) {
-  const [s, ev] = await Promise.all([api("/api/status"), api("/api/events?minutes=5")]);
-  let detail = null;
-  // An incident sent for review is handed off; the Live view stays clear for the next one
-  if (s.latest && s.latest.incident_id && s.latest.status !== "in_review")
-    detail = await api("/api/incidents/" + encodeURIComponent(s.latest.incident_id));
+  // One round trip; the server reads status, events, and the active incident in parallel.
+  // An incident sent for review is handed off, so the server leaves detail empty and the view stays clear.
+  const d = await api("/api/live");
+  const s = d.status, ev = d.events, detail = d.detail;
   if (token !== viewToken) return;
   renderTopbar(s);
   const cards = liveCards(s, ev, detail);

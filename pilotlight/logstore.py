@@ -51,6 +51,14 @@ def read_stream(group: str, stream: str) -> list[dict]:
         kwargs["nextToken"] = r["nextForwardToken"]
 
 
+def newest(group: str, stream: str, limit: int = 1) -> list[dict]:
+    """The newest N events in a stream, oldest first, in one call (no full-stream read)."""
+    try:
+        return logs.get_log_events(logGroupName=group, logStreamName=stream, startFromHead=False, limit=limit)["events"]
+    except logs.exceptions.ResourceNotFoundException:
+        return []
+
+
 def recent(group: str, seconds: int, pattern: str = "") -> list[dict]:
     """Events from the last N seconds across all streams in a group."""
     start = int((time.time() - seconds) * 1000)

@@ -5,6 +5,7 @@ Vercel) it reads incidents, the flag, and the alarm state from CloudWatch Logs i
 
 Run: uvicorn dashboard.app:app --port 8001   then open http://localhost:8001
 """
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -16,6 +17,7 @@ import threading
 import time
 import urllib.request
 from collections import defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import quote
 
@@ -171,7 +173,7 @@ def _local_incidents() -> list[dict]:
 def _cloudwatch_incidents() -> list[dict]:
     """Latest record per incident from the audit stream that incidents.put writes on every change."""
     latest: dict[str, dict] = {}
-    for e in logstore.read_stream(INCIDENTS_LOG_GROUP, "incidents"):
+    for e in logstore.newest(INCIDENTS_LOG_GROUP, "incidents", 2000):  # newest page only; records repeat on every update
         try:
             rec = json.loads(e["message"])
         except ValueError:
@@ -197,8 +199,7 @@ def _get_incident(incident_id: str) -> dict | None:
 
 
 def _latest_json(group: str, stream: str) -> dict | None:
-    events = logstore.read_stream(group, stream)
-    for e in reversed(events):
+    for e in reversed(logstore.newest(group, stream, 5)):
         try:
             return json.loads(e["message"])
         except ValueError:
@@ -221,11 +222,12 @@ def _fail_mode() -> str:
     return (rec or {}).get("to", "off")
 
 
-@app.get("/api/status")
-async def status(user: str = Depends(current_user)):
-    all_inc = _all_incidents()
+def _status_payload() -> dict:
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        inc_f, flag_f, alarm_f = pool.submit(_all_incidents), pool.submit(_fail_mode), pool.submit(_alarm_state)
+        all_inc, fail_mode, alarm_state = inc_f.result(), flag_f.result(), alarm_f.result()
     return {
-        "fail_mode": _fail_mode(), "alarm_name": ALARM_NAME, "alarm_state": _alarm_state(),
+        "fail_mode": fail_mode, "alarm_name": ALARM_NAME, "alarm_state": alarm_state,
         "alarm_rule": f">= {ALARM_THRESHOLD} errors in {ALARM_WINDOW_SECONDS}s",
         "incidents_total": len(all_inc),
         "incidents_open": sum(1 for i in all_inc if i.get("status") == "open"),
@@ -235,24 +237,53 @@ async def status(user: str = Depends(current_user)):
     }
 
 
+@app.get("/api/status")
+async def status(user: str = Depends(current_user)):
+    return await asyncio.to_thread(_status_payload)
+
+
 @app.get("/api/incidents")
 async def list_incidents(user: str = Depends(current_user)):
     return _all_incidents()
 
 
-@app.get("/api/incidents/{incident_id}")
-async def incident_detail(incident_id: str, user: str = Depends(current_user)):
+def _detail_payload(incident_id: str) -> dict | None:
     rec = _get_incident(incident_id)
     if not rec:
-        raise HTTPException(status_code=404, detail="incident not found")
+        return None
     return {"incident": rec, "timeline": _safe(lambda: timeline.list_all(incident_id), []),
             "links": {"timeline_logs": _log_stream_url(TIMELINE_LOG_GROUP, incident_id),
                       "box_folder": f"https://app.box.com/folder/{rec['box_folder_id']}" if rec.get("box_folder_id") else ""}}
 
 
+@app.get("/api/incidents/{incident_id}")
+async def incident_detail(incident_id: str, user: str = Depends(current_user)):
+    d = await asyncio.to_thread(_detail_payload, incident_id)
+    if not d:
+        raise HTTPException(status_code=404, detail="incident not found")
+    return d
+
+
 @app.get("/api/events")
 async def events(minutes: int = 15, user: str = Depends(current_user)):
-    """Checkout errors bucketed per 30s, plus a merged feed of errors and config changes."""
+    return await asyncio.to_thread(_events_payload, minutes)
+
+
+@app.get("/api/live")
+async def live(user: str = Depends(current_user)):
+    """Everything the Live view needs in one round trip, with the CloudWatch reads run in parallel."""
+    status_t = asyncio.to_thread(_status_payload)
+    events_t = asyncio.to_thread(_events_payload, 5)
+    s, ev = await asyncio.gather(status_t, events_t)
+    latest = s.get("latest") or {}
+    detail = None
+    if latest.get("incident_id") and latest.get("status") != "in_review":
+        detail = await asyncio.to_thread(_detail_payload, latest["incident_id"])
+    return {"status": s, "events": ev, "detail": detail}
+
+
+def _events_payload(minutes: int) -> dict:
+    """Checkout errors bucketed by time, plus a merged feed of errors and config changes."""
     minutes = max(1, min(minutes, 60))
     now_ms = int(time.time() * 1000)
     errors = _cached(f"errors:{minutes}", lambda: _safe(lambda: logstore.recent(CHECKOUT_LOG_GROUP, minutes * 60, '"ERROR"'), None))
