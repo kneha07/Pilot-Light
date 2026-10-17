@@ -3,6 +3,7 @@
 Run: uvicorn voice.server:app --port 8000   (expose with ngrok, set VOICE_SERVER_URL)
 """
 import asyncio
+import audioop
 import base64
 import hmac
 import json
@@ -21,6 +22,10 @@ from .audio import Converter
 from .sonic import SonicSession
 
 FRAME = 160  # 20ms of 8 kHz mu-law
+ECHO_TAIL_SECONDS = 0.4    # keep the caller muted this long after the agent's audio finishes playing
+NOISE_GATE_RMS = 250       # caller frames quieter than this are sent as silence (room noise, line hiss)
+GATE_HOLD_SECONDS = 0.5    # keep the gate open after speech so word endings are not clipped
+SILENT_FRAME = b"\xff" * FRAME
 
 app = FastAPI(title="Pilot Light voice server")
 
@@ -73,8 +78,22 @@ async def media(ws: WebSocket):
     conv, session, stream_sid, iid, call_sid = Converter(), None, None, None, None
     hangup_sent = False
 
+    loop = asyncio.get_running_loop()
+    audio = {"playing_until": 0.0, "gate_open_until": 0.0}
+
+    def caller_frame(ulaw: bytes) -> bytes:
+        """Echo guard and noise gate: the agent never hears itself on speakerphone, and quiet noise is dropped."""
+        now = loop.time()
+        if now < audio["playing_until"] + ECHO_TAIL_SECONDS:
+            return SILENT_FRAME
+        if audioop.rms(audioop.ulaw2lin(ulaw, 2), 2) >= NOISE_GATE_RMS:
+            audio["gate_open_until"] = now + GATE_HOLD_SECONDS
+        return ulaw if now < audio["gate_open_until"] else SILENT_FRAME
+
     async def to_twilio(pcm: bytes) -> None:
         ulaw = conv.sonic_to_twilio(pcm)
+        # Twilio plays audio in real time from when it arrives; track when this chunk finishes playing
+        audio["playing_until"] = max(audio["playing_until"], loop.time()) + len(ulaw) / 8000
         for i in range(0, len(ulaw), FRAME):
             await ws.send_text(json.dumps({"event": "media", "streamSid": stream_sid,
                                            "media": {"payload": base64.b64encode(ulaw[i:i + FRAME]).decode()}}))
@@ -109,7 +128,8 @@ async def media(ws: WebSocket):
                 session = SonicSession(iid, to_twilio, barge_in, hang_up)
                 await session.start()
             elif event == "media" and session:
-                await session.send_audio(conv.twilio_to_sonic(base64.b64decode(msg["media"]["payload"])))
+                frame = caller_frame(base64.b64decode(msg["media"]["payload"]))
+                await session.send_audio(conv.twilio_to_sonic(frame))
             elif event == "mark" and msg.get("mark", {}).get("name") == "goodbye":
                 await complete_call()
             elif event == "stop":
