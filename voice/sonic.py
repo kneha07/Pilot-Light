@@ -247,7 +247,6 @@ class SonicSession:
         try:
             await self._open(system, RECONNECT_KICKOFF)
             self._reconnecting = False
-        self._ending = False
         except Exception as e:
             print(f"[sonic] reconnect failed: {e}")
             await self._reconnect(f"reconnect failed: {e}")

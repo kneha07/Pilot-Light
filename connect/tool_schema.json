@@ -1,0 +1,62 @@
+[
+  {
+    "name": "get_briefing",
+    "description": "Return the spoken briefing for the current incident: what broke, the error summary, and the most recent config change.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "incident_id": {"type": "string", "description": "Incident ID, for example INC-20261017-100211."}
+      },
+      "required": ["incident_id"]
+    }
+  },
+  {
+    "name": "query_logs",
+    "description": "Summarize recent errors in the checkout service logs: total count and the top error.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "incident_id": {"type": "string", "description": "Incident ID."},
+        "minutes": {"type": "integer", "description": "Look-back window in minutes. Default 15."}
+      },
+      "required": ["incident_id"]
+    }
+  },
+  {
+    "name": "what_changed",
+    "description": "Report the most recent configuration change to the checkout service: old value, new value, time, and who made it.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "incident_id": {"type": "string", "description": "Incident ID."},
+        "minutes": {"type": "integer", "description": "Look-back window in minutes. Default 60."}
+      },
+      "required": ["incident_id"]
+    }
+  },
+  {
+    "name": "ask_runbook",
+    "description": "Answer a question from the runbook for this alarm.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "incident_id": {"type": "string", "description": "Incident ID."},
+        "question": {"type": "string", "description": "The engineer's question, in their words."}
+      },
+      "required": ["incident_id", "question"]
+    }
+  },
+  {
+    "name": "execute_remediation",
+    "description": "Run an approved fix. The only allowed action is revert_fail_mode. Set confirmed to true only after the engineer has said the word confirm in their latest turn. The server verifies this against the call transcript and refuses otherwise.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "incident_id": {"type": "string", "description": "Incident ID."},
+        "action": {"type": "string", "description": "Allowlisted action name. Only revert_fail_mode is allowed."},
+        "confirmed": {"type": "boolean", "description": "True only if the engineer said confirm in their latest turn."}
+      },
+      "required": ["incident_id", "action", "confirmed"]
+    }
+  }
+]

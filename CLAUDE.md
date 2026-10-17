@@ -68,6 +68,9 @@ Last updated: Fri Oct 16, 2026, 11:10pm.
 - [ ] README architecture diagram still shows the serverless design; update during the Sat 11:30 README pass
 - [ ] Teammate AWS access: console passwords are blocked by the SCP. Teammates sign up through the event link themselves, or work through Zain's machine.
 
+### Harika's additions (merged Sat 11:20, PR #1)
+Kept as additive files: `pilotlight/auto_fix/` (postmortem to tasks to GitHub PRs; run on demand: `python -m pilotlight.auto_fix <INCIDENT_ID>`, needs `GITHUB_REPO`/`GITHUB_TOKEN`), `connect/`, `pilotlight/connect.py`, `services/hangup|session|tools/`, `scripts/connect_setup.py`, `scripts/box_setup_metadata.py`, `scripts/test_call.py`, `samples/`, `infra/stack.py`. These target Amazon Connect, DynamoDB, and Lambda, which the event account blocks, and some call DynamoDB-era helpers (`incidents.latest_open`, `by_contact`) that the working build does not have. Her PR's edits to the demo core (config, timeline, incidents, tools, postmortem, incident handler, requirements, docs) were not taken, because they switched storage to DynamoDB and telephony to Connect. The auto-fix pipeline is not triggered after calls.
+
 ## 5. Decisions already made (do not reopen)
 
 - **Adapted design** for the restricted event account (section 3). Everything runs on Zain's laptop; AWS provides CloudWatch Logs and Bedrock.
