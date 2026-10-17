@@ -11,7 +11,7 @@ from .config import AWS_REGION, CHECKOUT_LOG_GROUP, CONFIG_AUDIT_LOG_GROUP
 logs = boto3.client("logs", region_name=AWS_REGION)
 
 ALLOWED_ACTIONS = {
-    "revert_fail_mode": "Set /pilotlight/checkout/fail_mode to off",
+    "rollback_payment_config": "Roll back the payment configuration",
 }
 
 try:
@@ -44,7 +44,7 @@ def query_logs(incident_id: str, minutes: int = 15) -> str:
     rows = _count_errors_insights(minutes)
     if rows is None:  # fall back to a direct filter so the agent always has an answer
         events = logstore.recent(CHECKOUT_LOG_GROUP, minutes * 60, '"ERROR"')
-        rows = [{"err": "PaymentTimeout", "errors": len(events)}] if events else []
+        rows = [{"err": "PaymentError", "errors": len(events)}] if events else []
     total = sum(int(row.get("errors", 0)) for row in rows)
     if total == 0:
         text = f"No errors in the checkout logs in the last {minutes} minutes."
@@ -68,19 +68,20 @@ def what_changed(incident_id: str, minutes: int = 60) -> str:
     else:
         last = max(changes, key=lambda c: c["at"])
         when = _spoken_time(datetime.datetime.fromisoformat(last["at"]))
-        text = f"The parameter fail_mode changed from {last['from']} to {last['to']} at {when} by {last['by']}."
+        verb = "changed" if last["to"] == "on" else "rolled back"
+        text = f"The payment configuration was {verb} at {when} by {last['by']}."
     timeline.add(incident_id, "tool", f"what_changed: {text}")
     return text
 
 
 def execute_remediation(incident_id: str, action: str, confirmed: bool) -> str:
     if action not in ALLOWED_ACTIONS:
-        text = "That action is not on the approved list. I can only revert the fail mode flag."
+        text = "That action is not on the approved list. I can only roll back the payment configuration."
     elif not confirmed:
-        text = "Say confirm and I will revert fail mode to off."
+        text = "Say confirm and I will roll back the payment configuration."
     else:
         flags.set_("off", by=f"pilot-light-agent for {incident_id}")
-        text = "Done. fail_mode is now off. Errors should drop within about ten seconds."
+        text = "Done. The payment configuration is rolled back. Payment errors should stop within about ten seconds."
         timeline.add(incident_id, "action", f"{action}: {ALLOWED_ACTIONS[action]} (verbally confirmed)")
         from . import revert_pr
         revert_pr.open_in_background(incident_id)  # reviewable PR for the rollback, never blocks the call

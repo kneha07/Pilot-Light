@@ -53,7 +53,6 @@ def build(incident_id: str) -> str:
               " the change with time and who made it, how many errors are active in the last 10 minutes and the top error,"
               " and what the runbook says to do. Then ask if they want you to do that."
             + "\n- This is a live phone call. Keep every turn under 30 words."
-            + "\n- Speech recognition may mishear \"fail mode\" as \"failover\". Treat \"failover\" as \"fail mode\"."
             + "\n- Only treat something as a request for an action if the engineer clearly asks you to do it."
               " If you are unsure what they said, ask them to repeat it."
             + "\n- When the engineer says they are done or asks to end the call, call the end_call tool, then say one"

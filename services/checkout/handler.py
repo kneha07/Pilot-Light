@@ -1,4 +1,4 @@
-"""Demo checkout service. Fails with PaymentTimeout while fail_mode is "on".
+"""Demo checkout service. Fails with PaymentError while the payment configuration is broken (fail_mode "on").
 Logs ship to CloudWatch Logs, which the incident watcher and query_logs read."""
 import json
 import os
@@ -27,10 +27,10 @@ def fail_mode() -> str:
 
 def handler(event=None, context=None):
     if fail_mode() == "on":
-        shipper.log("ERROR PaymentTimeout: upstream payment provider timed out after 3000ms")
+        shipper.log("ERROR PaymentError: payment provider rejected the request, invalid payment configuration")
         with _errors_lock:
             _errors.append(time.time())
-        return {"statusCode": 502, "body": json.dumps({"error": "PaymentTimeout"})}
+        return {"statusCode": 502, "body": json.dumps({"error": "PaymentError"})}
     shipper.log("INFO checkout ok")
     return {"statusCode": 200, "body": json.dumps({"ok": True})}
 
@@ -42,7 +42,7 @@ class _Http(BaseHTTPRequestHandler):
             with _errors_lock:
                 ts = list(_errors)
             body = json.dumps({"errors_10s": sum(t > now - 10 for t in ts), "errors_10m": sum(t > now - 600 for t in ts),
-                               "top_error": "PaymentTimeout" if ts else ""}).encode()
+                               "top_error": "PaymentError" if ts else ""}).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))

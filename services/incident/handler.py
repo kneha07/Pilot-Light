@@ -17,7 +17,7 @@ def _error_summary(iid: str) -> str:
         with urllib.request.urlopen(f"http://localhost:{CHECKOUT_PORT}/metrics", timeout=1) as r:
             m = json.loads(r.read())
         text = (f"In the last 10 minutes there were {m['errors_10m']} errors. "
-                f"The top error is {m['top_error'] or 'PaymentTimeout'} from the checkout handler.")
+                f"The top error is {m['top_error'] or 'PaymentError'} from the checkout handler.")
         timeline.add(iid, "tool", f"query_logs: {text}")
         return text
     except Exception:
@@ -47,7 +47,7 @@ def handler(event, context=None):
     timeline.add(iid, "alarm", f"{alarm} entered ALARM")
 
     changed = aws_tools.what_changed(iid)
-    briefing = f"Checkout API is failing. {_error_summary(iid)} {changed} A runbook for this alarm is available."
+    briefing = f"Checkout API is failing with payment errors. {_error_summary(iid)} {changed} A runbook for this alarm is available."
     timeline.add(iid, "briefing", briefing)
     incidents.put({
         "incident_id": iid, "service": "checkout-api", "alarm_name": alarm,

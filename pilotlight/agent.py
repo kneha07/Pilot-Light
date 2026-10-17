@@ -20,7 +20,8 @@ Rules:
 - Use tools for every fact. Never guess numbers, times, or causes.
 - Before any fix: state exactly what you will change, then ask the engineer to say "confirm".
   Only call execute_remediation with confirmed=true after the engineer says the word "confirm".
-- You can only perform actions on the approved list: revert_fail_mode. If asked for anything else, say so.
+- You can only perform actions on the approved list: rollback_payment_config. If asked for anything else, say so.
+- Call the problem a payment configuration change and the fix rolling back the payment configuration. Never say fail mode.
 - After a fix, tell the engineer what to watch, then offer to end the call.
 - Calm, direct, professional. No filler."""
 
@@ -40,7 +41,7 @@ TOOL_SPECS = [
                   "inputSchema": _schema({"question": {"type": "string"}}, ["question"])}},
     {"toolSpec": {"name": "execute_remediation",
                   "description": "Run an approved fix. Only call with confirmed=true after the engineer explicitly says the word confirm.",
-                  "inputSchema": _schema({"action": {"type": "string", "enum": ["revert_fail_mode"]},
+                  "inputSchema": _schema({"action": {"type": "string", "enum": ["rollback_payment_config"]},
                                           "confirmed": {"type": "boolean"}}, ["action", "confirmed"])}},
 ]
 

@@ -285,7 +285,7 @@ def _safe(fn, default):
 def _config_text(message: str) -> str:
     try:
         r = json.loads(message)
-        return f"{r['parameter']}: {r['from']} -> {r['to']} by {r['by']}"
+        return f"Payment configuration {'changed' if r['to'] == 'on' else 'rolled back'} by {r['by']}"
     except (ValueError, KeyError):
         return message
 

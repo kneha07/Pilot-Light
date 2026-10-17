@@ -353,7 +353,7 @@ function elapsed(startedAt) {
 
 function pill(v) {
   const val = String(v ?? "UNKNOWN");
-  const cls = { ALARM: "bad", OK: "ok", open: "bad", resolved: "ok", in_review: "warn", on: "bad", off: "ok", Failing: "bad", Healthy: "ok" }[val] || "warn";
+  const cls = { ALARM: "bad", OK: "ok", open: "bad", resolved: "ok", in_review: "warn", on: "bad", off: "ok", Failing: "bad", Healthy: "ok", changed: "bad", normal: "ok" }[val] || "warn";
   return h("span", { class: "pill " + cls }, val === "in_review" ? "in review" : val);
 }
 
@@ -425,7 +425,7 @@ function renderTopbar(s) {
   const kids = [
     h("span", { class: "svc" }, "checkout-api"),
     h("span", { class: "muted" }, "Alarm"), pill(s ? s.alarm_state : "UNKNOWN"),
-    h("span", { class: "muted" }, "fail_mode"), pill(s ? s.fail_mode : "UNKNOWN"),
+    h("span", { class: "muted" }, "Payment config"), pill(s ? (s.fail_mode === "on" ? "changed" : s.fail_mode === "off" ? "normal" : s.fail_mode) : "UNKNOWN"),
   ];
   if (s && s.source) kids.push(h("span", { class: "dim mono" }, "source: " + s.source));
   kids.push(h("span", { class: "spacer" }),
@@ -535,7 +535,7 @@ function guardrails() {
   const row = (t, d) => h("li", {}, icon("check"), h("div", {}, h("b", {}, t), h("span", {}, d)));
   return h("div", { class: "card" }, h("h2", {}, icon("shield"), "Guardrails"),
     h("ul", { class: "checks" },
-      row("Allowlisted action only", "The agent can run one fix: revert_fail_mode. Anything else is refused."),
+      row("Allowlisted action only", "The agent can run one fix: roll back the payment configuration. Anything else is refused."),
       row("Verbal confirm enforced in code", "The fix runs only after the engineer says confirm on the call."),
       row("Every action audited", "Recorded in CloudWatch Logs and in the Box incident folder.")));
 }
@@ -606,12 +606,12 @@ function demoCard(s) {
   });
   const reset = h("button", { class: "btn-ghost" }, "Reset service");
   reset.addEventListener("click", async () => {
-    try { await api("/api/demo/reset", { method: "POST" }); demoNote = "Service reset: fail_mode is off."; }
+    try { await api("/api/demo/reset", { method: "POST" }); demoNote = "Service reset: payment configuration is normal."; }
     catch (e) { demoNote = "Reset failed: " + (e.message || e); }
   });
   return h("div", { class: "card demo" },
     h("div", {}, h("h3", {}, "Run the live demo"),
-      h("div", { class: "muted" }, demoNote || "Flip the break switch on checkout-api and watch Pilot Light detect, call, fix, and document it.")),
+      h("div", { class: "muted" }, demoNote || "Push a bad payment configuration to checkout-api and watch Pilot Light detect, call, fix, and document it.")),
     h("div", { style: "display:flex; gap:10px; align-items:center" }, reset, btn));
 }
 
@@ -641,7 +641,7 @@ function liveCards(s, ev, detail) {
   const tDial = at((r) => r.type === "call" && /^Calling/.test(r.text || ""));
   const tConn = at((r) => r.type === "call" && /connected/i.test(r.text || ""));
   const tEnd = at((r) => r.type === "call" && /^Call ended/.test(r.text || ""));
-  const tFix = at((r) => r.type === "action" && /revert_fail_mode/.test(r.text || ""));
+  const tFix = at((r) => r.type === "action" && /rollback_payment_config|revert_fail_mode/.test(r.text || ""));
   const now = Date.now();
   const vals = (ev.error_buckets || []).map(num), bucketMs = num(ev.bucket_seconds) * 1000 || 5000;
   const errorsSince = (t) => vals.reduce((sum, v, i) => sum + (now - (vals.length - 1 - i) * bucketMs >= t ? v : 0), 0);

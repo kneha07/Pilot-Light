@@ -40,7 +40,7 @@ def _incident_record(incident_id: str, rec: dict, now: str) -> str:
             f"- Service: {rec.get('service', 'checkout-api')}\n"
             f"- Alarm: {rec.get('alarm_name', '')}\n"
             f"- Started: {rec.get('started_at', '')}\n"
-            f"- Remediation: revert_fail_mode, `/pilotlight/checkout/fail_mode` set to `off` at {now}\n"
+            f"- Remediation: rollback_payment_config, payment configuration rolled back at {now}\n"
             f"- Approval: verbal \"confirm\" from the on-call engineer, enforced in code\n"
             f"- Box incident folder: {box}\n\n"
             f"## Briefing\n\n{rec.get('briefing_text', '')}\n\n"
@@ -56,14 +56,14 @@ def open_revert_pr(incident_id: str) -> str:
     flags = {"checkout-api": {"fail_mode": "off", "changed_at": now, "incident": incident_id,
                               "changed_by": "pilot-light-agent", "approved_by": "on-call engineer (voice)"}}
     _put_file(branch, "config/flags.json", json.dumps(flags, indent=2) + "\n",
-              f"Revert fail_mode to off for {incident_id}")
+              f"Roll back payment configuration for {incident_id}")
     _put_file(branch, f"incidents/{incident_id}.md", _incident_record(incident_id, rec, now),
               f"Add incident record for {incident_id}")
     box = f"https://app.box.com/folder/{rec['box_folder_id']}" if rec.get("box_folder_id") else "n/a"
     pr = _gh("POST", "pulls", {
-        "title": f"Revert fail_mode to off for {incident_id}", "head": branch, "base": "main",
+        "title": f"Roll back payment configuration for {incident_id}", "head": branch, "base": "main",
         "body": (f"Opened by Pilot Light when the on-call engineer approved the fix by voice.\n\n"
-                 f"- Action: `revert_fail_mode` (the only allowlisted action)\n"
+                 f"- Action: `rollback_payment_config` (the only allowlisted action)\n"
                  f"- Approval: spoken \"confirm\", checked in code before the change ran\n"
                  f"- Incident record: `incidents/{incident_id}.md`\n"
                  f"- Box incident folder: {box}\n\n"
