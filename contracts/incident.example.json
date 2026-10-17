@@ -7,5 +7,7 @@
   "box_folder_id": "123456789",
   "runbook_file_id": "987654321",
   "briefing_text": "Checkout API is failing...",
-  "oncall_phone": "+1206XXXXXXX"
+  "oncall_phone": "+1206XXXXXXX",
+  "contact_id": "a1b2c3d4-5678-90ab-cdef-111122223333",
+  "ended_at": "2026-10-17T10:09:40Z"
 }

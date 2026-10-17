@@ -40,6 +40,19 @@ def generate(incident_id: str, folder_id: str, transcript: str) -> str:
     box_tools.create_review_task(file_id, f"Review postmortem for {incident_id}")
     timeline.add(incident_id, "postmortem", "Postmortem drafted in Box and assigned for review")
     incidents.update(incident_id, status="resolved")
+
+    # Kick off auto-fix pipeline in a background thread so the caller returns immediately
+    import threading
+    def _auto_fix():
+        try:
+            from .auto_fix.__main__ import run
+            run(incident_id)
+        except Exception as e:
+            print(f"[auto_fix] Pipeline failed (non-fatal): {e}")
+            timeline.add(incident_id, "autofix", f"Auto-fix pipeline error: {e}")
+    threading.Thread(target=_auto_fix, daemon=True, name=f"autofix-{incident_id}").start()
+    timeline.add(incident_id, "autofix", "Auto-fix pipeline triggered")
+
     return md
 
 

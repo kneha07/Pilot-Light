@@ -1,32 +1,52 @@
-"""Incident records (contract: contracts/incident.example.json). Stored as local JSON for fast
-reads by the voice server on the same machine, and audited to CloudWatch Logs."""
-import json
-from pathlib import Path
+"""DynamoDB incident record helpers. Table: pk incident_id."""
+import datetime
 
-from . import logstore
-from .config import INCIDENTS_LOG_GROUP, STATE_DIR
+import boto3
+from boto3.dynamodb.conditions import Attr
 
-DIR = Path(STATE_DIR) / "incidents"
+from .config import AWS_REGION, INCIDENTS_TABLE
 
-
-def put(record: dict) -> None:
-    DIR.mkdir(parents=True, exist_ok=True)
-    (DIR / f"{record['incident_id']}.json").write_text(json.dumps(record, indent=2))
-    logstore.put_json(INCIDENTS_LOG_GROUP, "incidents", record)
+table = boto3.resource("dynamodb", region_name=AWS_REGION).Table(INCIDENTS_TABLE)
 
 
 def get(incident_id: str) -> dict | None:
-    p = DIR / f"{incident_id}.json"
-    return json.loads(p.read_text()) if p.exists() else None
+    return table.get_item(Key={"incident_id": incident_id}).get("Item")
 
 
-def latest() -> dict | None:
-    files = sorted(DIR.glob("INC-*.json")) if DIR.exists() else []
-    return json.loads(files[-1].read_text()) if files else None
+def put(item: dict) -> None:
+    table.put_item(Item=item)
 
 
 def update(incident_id: str, **fields) -> None:
-    rec = get(incident_id)
-    if rec:
-        rec.update(fields)
-        put(rec)
+    names = {f"#{k}": k for k in fields}
+    values = {f":{k}": v for k, v in fields.items()}
+    table.update_item(Key={"incident_id": incident_id},
+        UpdateExpression="SET " + ", ".join(f"#{k} = :{k}" for k in fields),
+        ExpressionAttributeNames=names, ExpressionAttributeValues=values)
+
+
+def _scan(filter_expr) -> list[dict]:
+    items, kwargs = [], {"FilterExpression": filter_expr}
+    while True:
+        r = table.scan(**kwargs)
+        items += r["Items"]
+        if "LastEvaluatedKey" not in r:
+            return items
+        kwargs["ExclusiveStartKey"] = r["LastEvaluatedKey"]
+
+
+def latest_open(alarm_name: str | None = None, within_minutes: int | None = None) -> dict | None:
+    """Most recent open incident, optionally for one alarm and started within a window."""
+    expr = Attr("status").eq("open")
+    if alarm_name:
+        expr &= Attr("alarm_name").eq(alarm_name)
+    if within_minutes:
+        cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=within_minutes)
+        expr &= Attr("started_at").gte(cutoff.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    items = _scan(expr)
+    return max(items, key=lambda i: i["started_at"]) if items else None
+
+
+def by_contact(contact_id: str) -> dict | None:
+    items = _scan(Attr("contact_id").eq(contact_id))
+    return items[0] if items else None
