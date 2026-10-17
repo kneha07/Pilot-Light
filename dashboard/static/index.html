@@ -186,6 +186,16 @@
     .feed li > :last-child { grid-column: 1 / -1; }
     .msg .txt { font-size: 17px; }
   }
+  .card h2 { display: flex; align-items: center; gap: 8px; }
+  .card h2 svg { width: 18px; height: 18px; flex: none; color: var(--accent); }
+  .stepper { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 4px; }
+  .step { border: 1px solid #262c39; border-radius: 10px; padding: 12px; background: #11151d; }
+  .step.done { border-color: rgba(52, 211, 153, .45); }
+  .step .k { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+  .step .v { font-size: 22px; font-weight: 700; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .step.done .v { color: var(--ok); }
+  .step .d { font-size: 12px; color: var(--dim); margin-top: 2px; font-family: ui-monospace, monospace; }
+  @media (max-width: 900px) { .stepper { grid-template-columns: repeat(2, 1fr); } }
 </style>
 </head>
 <body>
@@ -306,6 +316,7 @@ function icon(name) {
   svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("fill", "none"); svg.setAttribute("stroke", "currentColor");
   svg.setAttribute("stroke-width", "2"); svg.setAttribute("stroke-linecap", "round"); svg.setAttribute("stroke-linejoin", "round");
   svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("width", "18"); svg.setAttribute("height", "18");
   const p = document.createElementNS(NS, "path");
   p.setAttribute("d", ICONS[name] || ICONS.doc);
   svg.append(p);
@@ -488,6 +499,26 @@ function chart(ev) {
     h("span", {}, "peak " + max + " per " + num(ev.bucket_seconds) + "s"), h("span", {}, "now")));
 }
 
+function responseTracker(rows) {
+  const first = (pred) => rows.find(pred);
+  const t0 = first((r) => r.type === "alarm");
+  const steps = [
+    ["Alarm fired", t0],
+    ["Briefing ready", first((r) => r.type === "briefing")],
+    ["Phone answered", first((r) => r.type === "call" && /connected/i.test(r.text || ""))],
+    ["Fix approved", first((r) => r.type === "action")],
+    ["Postmortem in Box", first((r) => r.type === "postmortem")],
+  ];
+  const base = t0 ? Date.parse(t0.ts) : NaN;
+  return h("div", { class: "card", style: "margin-bottom:16px" }, h("h2", {}, icon("pulse"), "Response tracker"),
+    h("div", { class: "stepper" }, steps.map(([label, row]) => {
+      const secs = row && !isNaN(base) ? Math.max(0, Math.round((Date.parse(row.ts) - base) / 1000)) : null;
+      return h("div", { class: "step" + (row ? " done" : "") }, h("div", { class: "k" }, label),
+        h("div", { class: "v" }, row ? (secs === 0 ? "0s" : "+" + secs + "s") : "waiting"),
+        h("div", { class: "d" }, row ? clock(row.ts) : ""));
+    })));
+}
+
 function statCard(label, value, foot, alert) {
   return h("div", { class: "card" + (alert ? " alert" : "") }, h("div", { class: "stat-label" }, label),
     h("div", { class: "stat" }, value), h("div", { class: "muted" }, foot));
@@ -547,7 +578,7 @@ function recordsCard(inc, links, rows) {
 }
 
 async function live(token) {
-  const [s, ev] = await Promise.all([api("/api/status"), api("/api/events?minutes=15")]);
+  const [s, ev] = await Promise.all([api("/api/status"), api("/api/events?minutes=5")]);
   let detail = null;
   if (s.latest && s.latest.incident_id) detail = await api("/api/incidents/" + encodeURIComponent(s.latest.incident_id));
   if (token !== viewToken) return;
@@ -557,13 +588,14 @@ async function live(token) {
     statCard("Alarm " + (s.alarm_name || ""), pill(s.alarm_state), s.alarm_rule || "", alarm),
     statCard("fail_mode flag", pill(s.fail_mode), "The break switch", s.fail_mode === "on"),
     statCard("Open incidents", String(num(s.incidents_open)), num(s.incidents_total) + " total", num(s.incidents_open) > 0),
-    statCard("Errors, last 15 min", String(num(ev.errors_total)), "Voice calls " + (s.voice_server ? "enabled" : "not configured")));
+    statCard("Errors, last 5 min", String(num(ev.errors_total)), "Voice calls " + (s.voice_server ? "enabled" : "not configured")));
 
   let incidentBlock;
   if (detail) {
     const i = detail.incident || {};
     const rows = Array.isArray(detail.timeline) ? detail.timeline : [];
-    const open = i.status === "open";
+    const ageMs = Date.now() - Date.parse(i.started_at || "");
+    const open = i.status === "open" && ageMs < 30 * 60 * 1000;  // older open records are leftovers, not live
     const head = h("div", { class: "card" + (open ? " alert" : ""), style: "margin-bottom:16px" },
       h("div", { class: "inc-head" }, h("span", { class: "id mono" }, i.incident_id || ""), pill(i.status),
         h("span", { class: "muted" }, (i.service || "") + "  |  " + (i.alarm_name || "")),
@@ -571,16 +603,16 @@ async function live(token) {
         h("span", { class: "elapsed mono" }, open ? "Open for " + elapsed(i.started_at) : "Started " + dateTime(i.started_at))),
       h("p", { class: "briefing" }, i.briefing_text || ""));
     const systemRows = rows.filter((t) => t.type !== "user" && t.type !== "agent");
-    incidentBlock = [head,
+    incidentBlock = [head, responseTracker(rows),
       h("div", { class: "grid two" },
         h("div", { class: "card" }, h("h2", {}, icon("phone"), "Call transcript"), transcript(rows)),
         h("div", { class: "card" }, h("h2", {}, icon("pulse"), "Incident timeline"), h("div", { class: "scroll" }, timelineList(systemRows))))];
     incidentBlock.push(h("div", { class: "grid two" },
-      h("div", { class: "card" }, h("h2", {}, icon("activity"), "Checkout errors, last 15 min"), chart(ev)),
+      h("div", { class: "card" }, h("h2", {}, icon("activity"), "Checkout errors, live (5s buckets)"), chart(ev)),
       h("div", { class: "grid", style: "align-content:start" }, recordsCard(i, detail.links, rows), guardrails())));
   } else {
     incidentBlock = [h("div", { class: "grid two" },
-      h("div", { class: "card" }, h("h2", {}, icon("activity"), "Checkout errors, last 15 min"), chart(ev),
+      h("div", { class: "card" }, h("h2", {}, icon("activity"), "Checkout errors, live (5s buckets)"), chart(ev),
         h("div", { class: "empty" }, "No incidents yet. When the alarm fires, the live incident appears here.")),
       guardrails())];
   }

@@ -226,7 +226,8 @@ async def events(minutes: int = 15, user: str = Depends(current_user)):
     changes = _cached("changes", lambda: _safe(lambda: logstore.recent(CONFIG_AUDIT_LOG_GROUP, 24 * 3600), []))
     connected = errors is not None
     errors = errors or []
-    bucket_ms, n = 30_000, minutes * 2
+    bucket_s = 5 if minutes <= 5 else 15 if minutes <= 15 else 30
+    bucket_ms, n = bucket_s * 1000, minutes * 60 // bucket_s
     buckets = [0] * n
     for e in errors:
         i = n - 1 - (now_ms - e["timestamp"]) // bucket_ms
