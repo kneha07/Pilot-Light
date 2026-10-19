@@ -1,0 +1,9 @@
+{
+  "checkout-api": {
+    "fail_mode": "off",
+    "changed_at": "2026-10-17T19:23:07Z",
+    "incident": "INC-20261017-192214",
+    "changed_by": "pilot-light-agent",
+    "approved_by": "on-call engineer (voice)"
+  }
+}
