@@ -2,7 +2,7 @@
 
 **Always on. Ignites when production breaks.**
 
-Built for the Box + AWS Agentic Enterprise AI Hackathon, Seattle, October 16 to 17, 2026.
+**1st place winner, Agentic Enterprise AI Hackathon hosted by Amazon Web Services (AWS) and Box, Seattle, October 16 to 17, 2026.** Built in under 24 hours.
 
 When production breaks, Pilot Light **phones the on-call engineer**. A voice agent on **Amazon Nova 2 Sonic** briefs them on what broke, answers questions from live AWS data and **Box** runbooks, and runs an approved fix only after the engineer says **"confirm."** Every step is recorded in a **Box incident folder**, a **postmortem** is drafted and assigned for human review, the fix is opened as a **GitHub pull request**, and an **auto-fix plan** for the root cause is waiting in Box when the call ends.
 
@@ -225,3 +225,11 @@ scripts/traffic.sh                                               # steady traffi
 ```
 
 Then click **Break something** on the dashboard, or run `scripts/break.sh`. Useful extras: `scripts/status.sh` (latest incident timeline), `scripts/fix.sh` (manual reset), `python -m pilotlight.chat` (text agent), `python -m pilotlight.auto_fix <INCIDENT_ID> --pr` (auto-fix pull requests).
+
+## Team
+
+Zain Bhutta, Neha Kumari, Harika Satti, Rajanikant Tenguria
+
+## Acknowledgments
+
+Thank you to AWS, Box, AI House, and Major League Hacking for hosting and sponsoring the event.
