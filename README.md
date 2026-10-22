@@ -1,8 +1,8 @@
-# Pilot Light
+# 🔥 Pilot Light - Voice AI Incident Response Agent | Hackathon 1st Place Winner
 
 **Always on. Ignites when production breaks.**
 
-**1st place winner, Agentic Enterprise AI Hackathon hosted by Amazon Web Services (AWS) and Box.**
+🏆 **1st Place Winner, Agentic Enterprise AI Hackathon hosted by Amazon Web Services (AWS) and Box**
 
 Built for the Box + AWS Agentic Enterprise AI Hackathon, Seattle, October 16 to 17, 2026.
 
