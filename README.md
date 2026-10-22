@@ -235,3 +235,7 @@ Zain Bhutta, Neha Kumari, Harika Satti, Rajanikant Tenguria
 ## Acknowledgments
 
 Thank you to AWS, Box, AI House, and Major League Hacking for hosting and sponsoring the event.
+
+## License
+
+Copyright (c) 2026 Zain Bhutta, Neha Kumari, Harika Satti, Rajanikant Tenguria. All rights reserved. No permission is granted to use, copy, modify, or distribute this code without written permission. See [LICENSE](LICENSE).
