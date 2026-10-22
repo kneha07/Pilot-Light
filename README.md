@@ -228,6 +228,10 @@ scripts/traffic.sh                                               # steady traffi
 
 Then click **Break something** on the dashboard, or run `scripts/break.sh`. Useful extras: `scripts/status.sh` (latest incident timeline), `scripts/fix.sh` (manual reset), `python -m pilotlight.chat` (text agent), `python -m pilotlight.auto_fix <INCIDENT_ID> --pr` (auto-fix pull requests).
 
+## Team
+
+Zain Bhutta, Neha Kumari, Harika Satti, Rajanikant Tenguria
+
 ## Acknowledgments
 
 Thank you to AWS, Box, AI House, and Major League Hacking for hosting and sponsoring the event.
