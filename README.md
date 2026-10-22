@@ -238,4 +238,4 @@ Thank you to AWS, Box, AI House, and Major League Hacking for hosting and sponso
 
 ## License
 
-Copyright (c) 2026 Zain Bhutta, Neha Kumari, Harika Satti, Rajanikant Tenguria. All rights reserved. No permission is granted to use, copy, modify, or distribute this code without written permission. See [LICENSE](LICENSE).
+Copyright (c) 2026 Zain Bhutta, Neha Kumari, Harika Satti, Rajanikant Tenguria. All rights reserved. No permission is granted to use, copy, fork, modify, or distribute this code without written permission. See [LICENSE](LICENSE).
